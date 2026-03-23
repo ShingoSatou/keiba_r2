@@ -1,0 +1,6 @@
+ALTER TABLE core.race
+    ADD COLUMN IF NOT EXISTS condition_code_2yo SMALLINT NULL,
+    ADD COLUMN IF NOT EXISTS condition_code_3yo SMALLINT NULL,
+    ADD COLUMN IF NOT EXISTS condition_code_4yo SMALLINT NULL,
+    ADD COLUMN IF NOT EXISTS condition_code_5up SMALLINT NULL,
+    ADD COLUMN IF NOT EXISTS condition_code_min_age_raw SMALLINT NULL;
