@@ -1,0 +1,26 @@
+# Decision Log
+
+- research-only repo にする
+  - production runtime や UI 導線を外し、研究で必要な責務だけに絞る
+- `run`, `study`, `feature_profile` を source of truth にする
+  - 実験結果、探索状態、特徴量契約を別物として管理する
+- `current default` と global manifest を廃止する
+  - 「今どれが本命か」ではなく、明示した `run_id` 同士を比べる
+- legacy Optuna は read-only seed として扱う
+  - 過去探索は再利用するが、そのまま mutable state として引き継がない
+  - imported study は provenance-preserving seed として扱い、完全 self-contained は要求しない
+- run compare は metrics + backtest に限定する
+  - selection-suite のような別運用を持ち込まず、run bundle に保存された評価で比較する
+- `V3_ASSET_ROOT` 相対 path を永続契約にする
+  - repo-native metadata に absolute path を残さない
+  - imported study は legacy provenance を残す read-only seed なので例外
+- spec は overview と implementation-aligned detail を分ける
+  - 入口 docs だけでは特徴量列、校正、購入ルールが追いにくいため、`feature-and-odds.md`, `binary-stacker-and-calibration.md`, `pl-inference-and-wide-backtest.md` を詳細 spec として持つ
+- repo 全体の目的、対象レース、比較単位は 1 枚で持つ
+  - 低レベル feature doc から project scope を推測させないため、`project-purpose-and-scope.md` を全体 purpose の canonical owner にする
+- project-wide default contract は 3年窓に揃える
+  - binary / PL は fixed-sliding 3 年、stacker は capped-expanding `min=2 max=3` を public default にする
+  - historical run/study は書き換えず、今後の default / docs / wrapper / tests だけを切り替える
+- wide calibrator は OOF fit / holdout apply にする
+  - public workflow の holdout same-row fit をやめ、out-of-sample calibrated prediction を backtest に渡す
+  - `wide_calibrated` backtest は isotonic artifact 固定のまま、入力の意味だけを leak-free に変える
