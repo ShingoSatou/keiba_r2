@@ -8,4 +8,4 @@ data/
 models/
 reports/
 wandb/
-
+*:Zone.Identifier

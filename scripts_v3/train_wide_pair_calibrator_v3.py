@@ -46,7 +46,10 @@ def _combined_suffix(*parts: str) -> str:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Train pair-level wide calibrator from fit input and apply it to evaluation input."
+        description=(
+            "Train pair-level wide calibrator from fit input and apply it "
+            "to evaluation input."
+        )
     )
     parser.add_argument(
         "--input",
