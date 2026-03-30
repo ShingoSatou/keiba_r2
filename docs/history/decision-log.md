@@ -24,3 +24,6 @@
 - wide calibrator は OOF fit / holdout apply にする
   - public workflow の holdout same-row fit をやめ、out-of-sample calibrated prediction を backtest に渡す
   - `wide_calibrated` backtest は isotonic artifact 固定のまま、入力の意味だけを leak-free に変える
+- current workspace の `V3_ASSET_ROOT` は repo 内でも辿れるようにする
+  - 別セッションで asset root を再発見できるよう、current path は `docs/history/active-asset-root.md` に残す
+  - shared asset root を切り替えたら、README の入口案内も同じ差分で更新する

@@ -7,6 +7,10 @@ export V3_ASSET_ROOT=/path/to/v3_assets
 export V3_DATABASE_URL=postgresql://...
 ```
 
+この workspace で現在使っている `V3_ASSET_ROOT` は
+[`docs/history/active-asset-root.md`](/home/sato/projects/REPO-v3-research/docs/history/active-asset-root.md)
+で確認します。
+
 optional:
 ```bash
 uv sync --extra optuna --extra xgboost --extra catboost

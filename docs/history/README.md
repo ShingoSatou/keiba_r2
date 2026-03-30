@@ -4,6 +4,8 @@
 研究を続けるときに必要な「要約された判断」と「archive を引くときの読み方」だけを残します。
 
 ## 何が入っているか
+- `active-asset-root.md`
+  - この workspace で現在使っている `V3_ASSET_ROOT` の場所
 - `decision-log.md`
   - この repo の前提にした恒久判断
 - `migration-ledger.md`
