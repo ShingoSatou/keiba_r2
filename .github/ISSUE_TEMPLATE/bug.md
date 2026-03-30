@@ -1,22 +1,22 @@
 ---
-name: Bug
+name: バグ
 about: 不具合や契約逸脱の修正を管理する
-title: "[bug] "
+title: "[バグ] "
 labels: ["kind:bug"]
 ---
 
-## Summary
+## 概要
 - 何が起きているか:
 
-## Impact
+## 影響
 - 影響範囲:
 - 壊れている契約:
 
-## Reproduction
+## 再現手順
 1. 
 2. 
 3. 
 
-## Verification
+## 確認
 - 修正後に確認したいこと:
-- 関連する `run_id` / `study_id` / report:
+- 関連する `run_id` / `study_id` / レポート:

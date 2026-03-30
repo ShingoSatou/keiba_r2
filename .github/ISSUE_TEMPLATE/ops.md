@@ -1,21 +1,21 @@
 ---
-name: Ops / Decision
+name: 運用 / 判断
 about: CI, GitHub 設定, docs, 運用判断の変更を管理する
-title: "[ops] "
+title: "[運用] "
 labels: ["kind:ops"]
 ---
 
-## Summary
+## 概要
 - 何を変えるか:
 
-## Reason
+## 背景
 - 背景:
 - 放置コスト:
 
-## Scope
+## 範囲
 - 変更するもの:
 - 変更しないもの:
 
-## Verification
+## 確認
 - 確認方法:
 - 更新が必要な docs / decision log:

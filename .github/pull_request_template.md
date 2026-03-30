@@ -1,24 +1,24 @@
-## Linked Issue
-- issue:
+## 関連 Issue
+- Issue:
 
-## Purpose
+## 目的
 - 
 
-## Repo Changes
+## この PR の変更
 - この PR で repo に入る変更:
 
-## Impacted Research Units
+## 影響する研究単位
 - `run`:
 - `study`:
 - `feature_profile`:
 
-## Verification
+## 検証
 - 実行したコマンド:
 - 結果:
 
-## Report
-- report link:
+## レポート
+- レポート:
 
-## Docs
+## ドキュメント
 - docs 更新:
 - decision log 更新:

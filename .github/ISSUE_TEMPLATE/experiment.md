@@ -1,27 +1,27 @@
 ---
-name: Experiment
+name: 実験
 about: 仮説検証や run/study の実行計画を管理する
-title: "[experiment] "
+title: "[実験] "
 labels: ["kind:experiment"]
 ---
 
-## Summary
+## 概要
 - 仮説:
 - 目的:
 
-## Plan
+## 計画
 - 対象:
 - 変更する条件:
 - 変更しない条件:
 
-## Tracking
+## 追跡情報
 - `run_id`:
 - `study_id`:
-- report link:
+- レポート:
 
-## Exit Criteria
+## 完了条件
 - 何をもって採用/不採用とするか:
 
-## Result
+## 結果
 - 結論要約:
 - 次の対応:
