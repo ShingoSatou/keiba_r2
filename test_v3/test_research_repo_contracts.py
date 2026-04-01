@@ -188,6 +188,114 @@ def test_train_binary_wrapper_rejects_duplicate_boost_round_config_keys(
         )
 
 
+def test_config_section_to_kwargs_rejects_multiple_sources_for_same_kwarg() -> None:
+    with pytest.raises(SystemExit, match="multiple keys that map to num_boost_round"):
+        training_commands._config_section_to_kwargs(
+            {
+                "final_num_boost_round": 120,
+                "final_iterations": 121,
+            },
+            key_map={
+                "final_num_boost_round": "num_boost_round",
+                "final_iterations": "num_boost_round",
+            },
+            context="binary.win.cat",
+        )
+
+
+def test_train_binary_wrapper_normalizes_num_boost_round_config_alias_for_cat(
+    asset_root_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    feature_root = asset_root_env / "data" / "features" / "baseline_v3" / "build_001"
+    feature_root.mkdir(parents=True, exist_ok=True)
+    (feature_root / "features_v3.parquet").write_text("placeholder", encoding="utf-8")
+    config_path = asset_root_env.parent / "binary_cat_alias.toml"
+    config_path.write_text(
+        "[binary.win.cat]\ndepth = 6\nnum_boost_round = 55\n",
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_run_binary_training(**kwargs: object) -> int:
+        captured.update(kwargs)
+        Path(str(kwargs["metrics_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["all_years_model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["oof_output"])).write_text("oof", encoding="utf-8")
+        Path(str(kwargs["holdout_output"])).write_text("holdout", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["feature_manifest_output"])).write_text("{}", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(
+        "keiba_research.training.commands.run_binary_training", fake_run_binary_training
+    )
+
+    rc = handle_binary(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": "binary_cat_config_alias",
+                "task": "win",
+                "model": "cat",
+                "feature_profile": "baseline_v3",
+                "feature_build_id": "build_001",
+                "feature_set": "base",
+                "config": str(config_path),
+                "study_id": "",
+                "holdout_year": 2025,
+                "train_window_years": 3,
+                "database_url": "",
+                "log_level": "INFO",
+            },
+        )()
+    )
+    assert rc == 0
+    assert captured["num_boost_round"] == 55
+    resolved = tomllib.loads(
+        (run_paths("binary_cat_config_alias")["root"] / "resolved_params.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+    params = resolved["binary"]["win"]["cat"]
+    assert params["final_iterations"] == 55
+    assert "num_boost_round" not in params
+
+
+def test_train_binary_wrapper_rejects_cat_alias_and_canonical_iteration_keys(
+    asset_root_env: Path,
+) -> None:
+    config_path = asset_root_env.parent / "binary_cat_duplicate.toml"
+    config_path.write_text(
+        "[binary.win.cat]\nfinal_iterations = 54\nnum_boost_round = 55\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="cannot contain both"):
+        handle_binary(
+            type(
+                "Args",
+                (),
+                {
+                    "run_id": "binary_cat_config_duplicate",
+                    "task": "win",
+                    "model": "cat",
+                    "feature_profile": "baseline_v3",
+                    "feature_build_id": "build_001",
+                    "feature_set": "base",
+                    "config": str(config_path),
+                    "study_id": "",
+                    "holdout_year": 2025,
+                    "train_window_years": 3,
+                    "database_url": "",
+                    "log_level": "INFO",
+                },
+            )()
+        )
+
+
 def test_train_stack_wrapper_normalizes_num_boost_round_config_alias(
     asset_root_env: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

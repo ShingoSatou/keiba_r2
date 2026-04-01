@@ -192,12 +192,22 @@ def _config_section_to_kwargs(
     section: dict[str, object],
     *,
     key_map: dict[str, str],
+    context: str,
 ) -> dict[str, object]:
-    return {
-        kwarg_key: section[config_key]
-        for config_key, kwarg_key in key_map.items()
-        if config_key in section
-    }
+    kwargs: dict[str, object] = {}
+    seen_sources: dict[str, str] = {}
+    for config_key, kwarg_key in key_map.items():
+        if config_key not in section:
+            continue
+        if kwarg_key in seen_sources:
+            first = seen_sources[kwarg_key]
+            raise SystemExit(
+                f"{context} specifies multiple keys that map to {kwarg_key}: "
+                f"{first} and {config_key}"
+            )
+        seen_sources[kwarg_key] = config_key
+        kwargs[kwarg_key] = section[config_key]
+    return kwargs
 
 
 _BINARY_CONFIG_KWARGS: dict[str, str] = {
@@ -306,6 +316,7 @@ def handle_binary(args: argparse.Namespace) -> int:
             _config_section_to_kwargs(
                 config_section,
                 key_map=_BINARY_CONFIG_KWARGS,
+                context=f"binary.{task}.{model}",
             )
         )
     rc = int(run_binary_training(**run_kwargs))  # type: ignore[arg-type]
@@ -438,6 +449,7 @@ def handle_stack(args: argparse.Namespace) -> int:
             _config_section_to_kwargs(
                 config_section,
                 key_map=_STACKER_CONFIG_KWARGS,
+                context=f"stacker.{task}",
             )
         )
     rc = int(run_stacker_training(**stack_kwargs))  # type: ignore[arg-type]
