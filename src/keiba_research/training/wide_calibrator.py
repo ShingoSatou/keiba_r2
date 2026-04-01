@@ -33,6 +33,16 @@ DEFAULT_PRED_OUTPUT = "data/oof/wide_pair_calibration_2025_pred.parquet"
 DEFAULT_METRICS_OUTPUT = "data/oof/wide_pair_calibration_2025_metrics.json"
 
 
+def wide_calibrator_artifact_paths(run: dict[str, Path], *, method: str) -> dict[str, Path]:
+    method_name = str(method).strip()
+    return {
+        "model": run["models"] / f"wide_pair_calibrator_{method_name}.joblib",
+        "meta": run["models"] / f"wide_pair_calibrator_{method_name}_bundle_meta.json",
+        "predictions": run["predictions"] / f"wide_pair_calibration_{method_name}_pred.parquet",
+        "metrics": run["reports"] / f"wide_pair_calibration_{method_name}_metrics.json",
+    }
+
+
 def _combined_suffix(*parts: str) -> str:
     cleaned = [str(part).strip() for part in parts if str(part).strip()]
     return "_".join(cleaned)

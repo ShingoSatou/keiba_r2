@@ -33,7 +33,9 @@
   - stacker の min/max_train_years は sentinel None を使い、params_json での上書きを可能にする
 - scripts_v3/ を src/keiba_research/ に完全統合・廃止する（Phase 4）
   - 「scripts_v3 は内部実装」という注釈なしに src/keiba_research 配下に統一することで、import パスが keiba_research.* に揃い、ruff の E402 例外設定も不要になる
-  - config key (final_num_boost_round) と関数引数名 (num_boost_round) の不一致は commands.py のマッピング層で吸収し、将来的には config key 命名の整合が課題として残る
+  - config key (`final_num_boost_round`, `final_iterations`) と関数引数名 (`num_boost_round`) の不一致は commands.py の中央マッピングで吸収する
+  - 手書き `run_config.toml` の `num_boost_round` は compatibility alias として受理し、保存時は canonical key に正規化する
+  - wide calibrator の run artifact path は helper 1 箇所を owner にし、wrapper はその返り値を bundle / metrics 更新と共有する
 - GitHub を task / decision 管理面の正規導線にする
   - `Issue` で仮説、修正、運用判断、実験結果の要約を管理する
   - `PR` は code/docs/CI など repo-tracked な差分があるときだけ作る

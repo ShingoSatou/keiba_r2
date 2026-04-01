@@ -31,7 +31,10 @@ from keiba_research.training.cv_policy import (
 )
 from keiba_research.training.pl import run_pl_training
 from keiba_research.training.stacker import run_stacker_training
-from keiba_research.training.wide_calibrator import run_wide_calibrator
+from keiba_research.training.wide_calibrator import (
+    run_wide_calibrator,
+    wide_calibrator_artifact_paths,
+)
 
 
 class _StoreAndMarkSpecified(argparse.Action):
@@ -168,49 +171,81 @@ def _load_config_section(config_path: str, *keys: str) -> dict[str, object]:
     return dict(section) if isinstance(section, dict) else {}
 
 
-def _apply_config_to_argv(
-    argv: list[str],
+def _normalize_config_section(
     section: dict[str, object],
     *,
-    flag_map: dict[str, str],
-) -> list[str]:
-    """Append config values as CLI flags (only if not already present)."""
-    existing_flags = set(argv)
-    for param, flag in flag_map.items():
-        if param in section and flag not in existing_flags:
-            argv.extend([flag, str(section[param])])
-    return argv
+    aliases: dict[str, str],
+    context: str,
+) -> dict[str, object]:
+    normalized = dict(section)
+    for alias, canonical in aliases.items():
+        if alias in normalized and canonical in normalized:
+            raise SystemExit(
+                f"{context} cannot contain both {canonical} and its compatibility alias {alias}"
+            )
+        if alias in normalized:
+            normalized[canonical] = normalized.pop(alias)
+    return normalized
 
 
-_BINARY_CONFIG_FLAGS: dict[str, str] = {
-    "learning_rate": "--learning-rate",
-    "num_leaves": "--num-leaves",
-    "min_data_in_leaf": "--min-data-in-leaf",
-    "lambda_l1": "--lambda-l1",
-    "lambda_l2": "--lambda-l2",
-    "feature_fraction": "--feature-fraction",
-    "bagging_fraction": "--bagging-fraction",
-    "bagging_freq": "--bagging-freq",
-    "final_num_boost_round": "--num-boost-round",
-    "train_window_years": "--train-window-years",
-    "max_depth": "--max-depth",
-    "depth": "--depth",
+def _config_section_to_kwargs(
+    section: dict[str, object],
+    *,
+    key_map: dict[str, str],
+    context: str,
+) -> dict[str, object]:
+    kwargs: dict[str, object] = {}
+    seen_sources: dict[str, str] = {}
+    for config_key, kwarg_key in key_map.items():
+        if config_key not in section:
+            continue
+        if kwarg_key in seen_sources:
+            first = seen_sources[kwarg_key]
+            raise SystemExit(
+                f"{context} specifies multiple keys that map to {kwarg_key}: "
+                f"{first} and {config_key}"
+            )
+        seen_sources[kwarg_key] = config_key
+        kwargs[kwarg_key] = section[config_key]
+    return kwargs
+
+
+_BINARY_CONFIG_KWARGS: dict[str, str] = {
+    "learning_rate": "learning_rate",
+    "num_leaves": "num_leaves",
+    "min_data_in_leaf": "min_data_in_leaf",
+    "lambda_l1": "lambda_l1",
+    "lambda_l2": "lambda_l2",
+    "feature_fraction": "feature_fraction",
+    "bagging_fraction": "bagging_fraction",
+    "bagging_freq": "bagging_freq",
+    "final_num_boost_round": "num_boost_round",
+    "final_iterations": "num_boost_round",
+    "train_window_years": "train_window_years",
+    "max_depth": "max_depth",
+    "depth": "depth",
 }
 
 
-_STACKER_CONFIG_FLAGS: dict[str, str] = {
-    "learning_rate": "--learning-rate",
-    "num_leaves": "--num-leaves",
-    "min_data_in_leaf": "--min-data-in-leaf",
-    "lambda_l1": "--lambda-l1",
-    "lambda_l2": "--lambda-l2",
-    "feature_fraction": "--feature-fraction",
-    "bagging_fraction": "--bagging-fraction",
-    "bagging_freq": "--bagging-freq",
-    "final_num_boost_round": "--num-boost-round",
-    "min_train_years": "--min-train-years",
-    "max_train_years": "--max-train-years",
+_STACKER_CONFIG_KWARGS: dict[str, str] = {
+    "learning_rate": "learning_rate",
+    "num_leaves": "num_leaves",
+    "min_data_in_leaf": "min_data_in_leaf",
+    "lambda_l1": "lambda_l1",
+    "lambda_l2": "lambda_l2",
+    "feature_fraction": "feature_fraction",
+    "bagging_fraction": "bagging_fraction",
+    "bagging_freq": "bagging_freq",
+    "final_num_boost_round": "num_boost_round",
+    "min_train_years": "min_train_years",
+    "max_train_years": "max_train_years",
 }
+
+
+def _binary_config_aliases(model: str) -> dict[str, str]:
+    if str(model) == "cat":
+        return {"num_boost_round": "final_iterations"}
+    return {"num_boost_round": "final_num_boost_round"}
 
 
 def handle_binary(args: argparse.Namespace) -> int:
@@ -225,6 +260,11 @@ def handle_binary(args: argparse.Namespace) -> int:
     config_section: dict[str, object] = {}
     if config_path:
         config_section = _load_config_section(config_path, "binary", task, model)
+        config_section = _normalize_config_section(
+            config_section,
+            aliases=_binary_config_aliases(model),
+            context=f"binary.{task}.{model}",
+        )
         if "feature_set" in config_section:
             feature_set = str(config_section["feature_set"])
 
@@ -272,10 +312,13 @@ def handle_binary(args: argparse.Namespace) -> int:
         train_window_years=train_window_years_value,
     )
     if config_path:
-        for param, _flag in _BINARY_CONFIG_FLAGS.items():
-            if param in config_section:
-                key = "num_boost_round" if param == "final_num_boost_round" else param
-                run_kwargs[key] = config_section[param]
+        run_kwargs.update(
+            _config_section_to_kwargs(
+                config_section,
+                key_map=_BINARY_CONFIG_KWARGS,
+                context=f"binary.{task}.{model}",
+            )
+        )
     rc = int(run_binary_training(**run_kwargs))  # type: ignore[arg-type]
     if rc != 0:
         return rc
@@ -340,6 +383,11 @@ def handle_stack(args: argparse.Namespace) -> int:
     config_section: dict[str, object] = {}
     if config_path:
         config_section = _load_config_section(config_path, "stacker", task)
+        config_section = _normalize_config_section(
+            config_section,
+            aliases={"num_boost_round": "final_num_boost_round"},
+            context=f"stacker.{task}",
+        )
 
     update_run_config(
         args.run_id,
@@ -397,10 +445,13 @@ def handle_stack(args: argparse.Namespace) -> int:
         max_train_years=stack_max_train_years,
     )
     if config_path:
-        for param, _flag in _STACKER_CONFIG_FLAGS.items():
-            if param in config_section:
-                key = "num_boost_round" if param == "final_num_boost_round" else param
-                stack_kwargs[key] = config_section[param]
+        stack_kwargs.update(
+            _config_section_to_kwargs(
+                config_section,
+                key_map=_STACKER_CONFIG_KWARGS,
+                context=f"stacker.{task}",
+            )
+        )
     rc = int(run_stacker_training(**stack_kwargs))  # type: ignore[arg-type]
     if rc != 0:
         return rc
@@ -586,7 +637,8 @@ def handle_wide_calibrator(args: argparse.Namespace) -> int:
             f"{source['oof'] / f'pl_{profile}_oof.parquet'}"
         )
     apply_input_path = source["holdout"] / f"pl_{profile}_holdout_{holdout_year}.parquet"
-    metrics_path = run["reports"] / f"wide_pair_calibration_{str(args.method)}_metrics.json"
+    artifact_paths = wide_calibrator_artifact_paths(run, method=str(args.method))
+    metrics_path = artifact_paths["metrics"]
 
     run_config_update: dict[str, object] = {
         "run_id": str(args.run_id),
@@ -604,13 +656,9 @@ def handle_wide_calibrator(args: argparse.Namespace) -> int:
             fit_input=str(fit_input_path),
             apply_input=str(apply_input_path),
             method=str(args.method),
-            model_output=str(run["models"] / f"wide_pair_calibrator_{str(args.method)}.joblib"),
-            meta_output=str(
-                run["models"] / f"wide_pair_calibrator_{str(args.method)}_bundle_meta.json"
-            ),
-            pred_output=str(
-                run["predictions"] / f"wide_pair_calibration_{str(args.method)}_pred.parquet"
-            ),
+            model_output=str(artifact_paths["model"]),
+            meta_output=str(artifact_paths["meta"]),
+            pred_output=str(artifact_paths["predictions"]),
             metrics_output=str(metrics_path),
             database_url=str(args.database_url).strip(),
             years=str(args.years),
@@ -620,9 +668,7 @@ def handle_wide_calibrator(args: argparse.Namespace) -> int:
     )
     if rc != 0:
         return rc
-    _finalize_metadata(
-        run["models"] / f"wide_pair_calibrator_{str(args.method)}_bundle_meta.json",
-    )
+    _finalize_metadata(artifact_paths["meta"])
     save_resolved_params(
         args.run_id,
         f"wide_calibrator.{str(args.method)}",
@@ -641,10 +687,9 @@ def handle_wide_calibrator(args: argparse.Namespace) -> int:
             **asset_payload(
                 input=fit_input_path,
                 apply_input=apply_input_path,
-                model=run["models"] / f"wide_pair_calibrator_{str(args.method)}.joblib",
-                meta=run["models"] / f"wide_pair_calibrator_{str(args.method)}_bundle_meta.json",
-                predictions=run["predictions"]
-                / f"wide_pair_calibration_{str(args.method)}_pred.parquet",
+                model=artifact_paths["model"],
+                meta=artifact_paths["meta"],
+                predictions=artifact_paths["predictions"],
                 metrics=metrics_path,
             ),
         },

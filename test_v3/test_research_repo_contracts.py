@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import subprocess
@@ -9,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import keiba_research.training.commands as training_commands
 from keiba_research.cli import build_parser
 from keiba_research.common.assets import (
     asset_relative,
@@ -30,9 +32,11 @@ from keiba_research.common.state import (
 from keiba_research.common.v3_utils import hash_files, resolve_path
 from keiba_research.db.commands import handle_rebuild
 from keiba_research.evaluation.commands import handle_backtest, handle_compare
+from keiba_research.training.binary import run_binary_training
 from keiba_research.training.commands import (
     handle_binary,
     handle_pl,
+    handle_stack,
     handle_wide_calibrator,
 )
 from keiba_research.training.cv_policy import (
@@ -45,7 +49,10 @@ from keiba_research.training.stacker import (
     run_stacker_training,
 )
 from keiba_research.training.stacker_common import _meta_payload
-from keiba_research.training.wide_calibrator import run_wide_calibrator
+from keiba_research.training.wide_calibrator import (
+    run_wide_calibrator,
+    wide_calibrator_artifact_paths,
+)
 from keiba_research.tuning.commands import (
     _assert_study_writable,
 )
@@ -76,6 +83,330 @@ def _argv_to_dict(argv: list[str]) -> dict[str, str | bool]:
             parsed[token] = True
             index += 1
     return parsed
+
+
+def test_binary_config_mapping_matches_run_binary_signature() -> None:
+    signature = inspect.signature(run_binary_training)
+    assert set(training_commands._BINARY_CONFIG_KWARGS.values()) <= set(signature.parameters)
+
+
+def test_stacker_config_mapping_matches_run_stacker_signature() -> None:
+    signature = inspect.signature(run_stacker_training)
+    assert set(training_commands._STACKER_CONFIG_KWARGS.values()) <= set(signature.parameters)
+
+
+def test_train_binary_wrapper_normalizes_num_boost_round_config_alias(
+    asset_root_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    feature_root = asset_root_env / "data" / "features" / "baseline_v3" / "build_001"
+    feature_root.mkdir(parents=True, exist_ok=True)
+    (feature_root / "features_v3.parquet").write_text("placeholder", encoding="utf-8")
+    config_path = asset_root_env.parent / "binary_alias.toml"
+    config_path.write_text(
+        "[binary.win.lgbm]\nlearning_rate = 0.03\nnum_boost_round = 123\n",
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_run_binary_training(**kwargs: object) -> int:
+        captured.update(kwargs)
+        Path(str(kwargs["metrics_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["all_years_model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["oof_output"])).write_text("oof", encoding="utf-8")
+        Path(str(kwargs["holdout_output"])).write_text("holdout", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["feature_manifest_output"])).write_text("{}", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(
+        "keiba_research.training.commands.run_binary_training", fake_run_binary_training
+    )
+
+    rc = handle_binary(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": "binary_config_alias",
+                "task": "win",
+                "model": "lgbm",
+                "feature_profile": "baseline_v3",
+                "feature_build_id": "build_001",
+                "feature_set": "base",
+                "config": str(config_path),
+                "study_id": "",
+                "holdout_year": 2025,
+                "train_window_years": 3,
+                "database_url": "",
+                "log_level": "INFO",
+            },
+        )()
+    )
+    assert rc == 0
+    assert captured["num_boost_round"] == 123
+    resolved = tomllib.loads(
+        (run_paths("binary_config_alias")["root"] / "resolved_params.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+    params = resolved["binary"]["win"]["lgbm"]
+    assert params["final_num_boost_round"] == 123
+    assert "num_boost_round" not in params
+
+
+def test_train_binary_wrapper_rejects_duplicate_boost_round_config_keys(
+    asset_root_env: Path,
+) -> None:
+    config_path = asset_root_env.parent / "binary_duplicate.toml"
+    config_path.write_text(
+        "[binary.win.lgbm]\nfinal_num_boost_round = 120\nnum_boost_round = 121\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="cannot contain both"):
+        handle_binary(
+            type(
+                "Args",
+                (),
+                {
+                    "run_id": "binary_config_duplicate",
+                    "task": "win",
+                    "model": "lgbm",
+                    "feature_profile": "baseline_v3",
+                    "feature_build_id": "build_001",
+                    "feature_set": "base",
+                    "config": str(config_path),
+                    "study_id": "",
+                    "holdout_year": 2025,
+                    "train_window_years": 3,
+                    "database_url": "",
+                    "log_level": "INFO",
+                },
+            )()
+        )
+
+
+def test_config_section_to_kwargs_rejects_multiple_sources_for_same_kwarg() -> None:
+    with pytest.raises(SystemExit, match="multiple keys that map to num_boost_round"):
+        training_commands._config_section_to_kwargs(
+            {
+                "final_num_boost_round": 120,
+                "final_iterations": 121,
+            },
+            key_map={
+                "final_num_boost_round": "num_boost_round",
+                "final_iterations": "num_boost_round",
+            },
+            context="binary.win.cat",
+        )
+
+
+def test_train_binary_wrapper_normalizes_num_boost_round_config_alias_for_cat(
+    asset_root_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    feature_root = asset_root_env / "data" / "features" / "baseline_v3" / "build_001"
+    feature_root.mkdir(parents=True, exist_ok=True)
+    (feature_root / "features_v3.parquet").write_text("placeholder", encoding="utf-8")
+    config_path = asset_root_env.parent / "binary_cat_alias.toml"
+    config_path.write_text(
+        "[binary.win.cat]\ndepth = 6\nnum_boost_round = 55\n",
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_run_binary_training(**kwargs: object) -> int:
+        captured.update(kwargs)
+        Path(str(kwargs["metrics_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["all_years_model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["oof_output"])).write_text("oof", encoding="utf-8")
+        Path(str(kwargs["holdout_output"])).write_text("holdout", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["feature_manifest_output"])).write_text("{}", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(
+        "keiba_research.training.commands.run_binary_training", fake_run_binary_training
+    )
+
+    rc = handle_binary(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": "binary_cat_config_alias",
+                "task": "win",
+                "model": "cat",
+                "feature_profile": "baseline_v3",
+                "feature_build_id": "build_001",
+                "feature_set": "base",
+                "config": str(config_path),
+                "study_id": "",
+                "holdout_year": 2025,
+                "train_window_years": 3,
+                "database_url": "",
+                "log_level": "INFO",
+            },
+        )()
+    )
+    assert rc == 0
+    assert captured["num_boost_round"] == 55
+    resolved = tomllib.loads(
+        (run_paths("binary_cat_config_alias")["root"] / "resolved_params.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+    params = resolved["binary"]["win"]["cat"]
+    assert params["final_iterations"] == 55
+    assert "num_boost_round" not in params
+
+
+def test_train_binary_wrapper_rejects_cat_alias_and_canonical_iteration_keys(
+    asset_root_env: Path,
+) -> None:
+    config_path = asset_root_env.parent / "binary_cat_duplicate.toml"
+    config_path.write_text(
+        "[binary.win.cat]\nfinal_iterations = 54\nnum_boost_round = 55\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="cannot contain both"):
+        handle_binary(
+            type(
+                "Args",
+                (),
+                {
+                    "run_id": "binary_cat_config_duplicate",
+                    "task": "win",
+                    "model": "cat",
+                    "feature_profile": "baseline_v3",
+                    "feature_build_id": "build_001",
+                    "feature_set": "base",
+                    "config": str(config_path),
+                    "study_id": "",
+                    "holdout_year": 2025,
+                    "train_window_years": 3,
+                    "database_url": "",
+                    "log_level": "INFO",
+                },
+            )()
+        )
+
+
+def test_train_stack_wrapper_normalizes_num_boost_round_config_alias(
+    asset_root_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    feature_root = asset_root_env / "data" / "features" / "baseline_v3" / "build_001"
+    feature_root.mkdir(parents=True, exist_ok=True)
+    (feature_root / "features_v3.parquet").write_text("placeholder", encoding="utf-8")
+    source = run_paths("stack_source_alias")
+    source["oof"].mkdir(parents=True, exist_ok=True)
+    source["holdout"].mkdir(parents=True, exist_ok=True)
+    for model in ("lgbm", "xgb", "cat"):
+        (source["oof"] / f"win_{model}_oof.parquet").write_text("oof", encoding="utf-8")
+        (source["holdout"] / f"win_{model}_holdout_2025.parquet").write_text(
+            "holdout",
+            encoding="utf-8",
+        )
+    config_path = asset_root_env.parent / "stack_alias.toml"
+    config_path.write_text(
+        "[stacker.win]\nnum_boost_round = 77\nmin_train_years = 1\nmax_train_years = 2\n",
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_run_stacker_training(**kwargs: object) -> int:
+        captured.update(kwargs)
+        Path(str(kwargs["metrics_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["all_years_model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["oof_output"])).write_text("oof", encoding="utf-8")
+        Path(str(kwargs["holdout_output"])).write_text("holdout", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["feature_manifest_output"])).write_text("{}", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(
+        "keiba_research.training.commands.run_stacker_training", fake_run_stacker_training
+    )
+
+    rc = handle_stack(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": "stack_config_alias",
+                "task": "win",
+                "feature_profile": "baseline_v3",
+                "feature_build_id": "build_001",
+                "source_run_id": "stack_source_alias",
+                "config": str(config_path),
+                "study_id": "",
+                "holdout_year": 2025,
+                "min_train_years": 2,
+                "max_train_years": 3,
+                "log_level": "INFO",
+            },
+        )()
+    )
+    assert rc == 0
+    assert captured["num_boost_round"] == 77
+    resolved = tomllib.loads(
+        (run_paths("stack_config_alias")["root"] / "resolved_params.toml").read_text(
+            encoding="utf-8"
+        )
+    )
+    params = resolved["stack"]["win"]
+    assert params["final_num_boost_round"] == 77
+    assert "num_boost_round" not in params
+
+
+def test_train_stack_wrapper_rejects_duplicate_boost_round_config_keys(
+    asset_root_env: Path,
+) -> None:
+    config_path = asset_root_env.parent / "stack_duplicate.toml"
+    config_path.write_text(
+        "[stacker.win]\nfinal_num_boost_round = 80\nnum_boost_round = 81\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="cannot contain both"):
+        handle_stack(
+            type(
+                "Args",
+                (),
+                {
+                    "run_id": "stack_config_duplicate",
+                    "task": "win",
+                    "feature_profile": "baseline_v3",
+                    "feature_build_id": "build_001",
+                    "source_run_id": "stack_source_duplicate",
+                    "config": str(config_path),
+                    "study_id": "",
+                    "holdout_year": 2025,
+                    "min_train_years": 2,
+                    "max_train_years": 3,
+                    "log_level": "INFO",
+                },
+            )()
+        )
+
+
+def test_wide_calibrator_artifact_paths_are_method_aware(asset_root_env: Path) -> None:
+    run = run_paths("wide_paths")
+    isotonic_paths = wide_calibrator_artifact_paths(run, method="isotonic")
+    logreg_paths = wide_calibrator_artifact_paths(run, method="logreg")
+
+    assert isotonic_paths["model"].name == "wide_pair_calibrator_isotonic.joblib"
+    assert isotonic_paths["predictions"].name == "wide_pair_calibration_isotonic_pred.parquet"
+    assert logreg_paths["model"].name == "wide_pair_calibrator_logreg.joblib"
+    assert logreg_paths["meta"].name == "wide_pair_calibrator_logreg_bundle_meta.json"
+    assert logreg_paths["predictions"].name == "wide_pair_calibration_logreg_pred.parquet"
+    assert logreg_paths["metrics"].name == "wide_pair_calibration_logreg_metrics.json"
 
 
 def test_run_bundle_uses_asset_relative_paths(asset_root_env: Path) -> None:
@@ -876,6 +1207,70 @@ def test_wide_calibrator_wrapper_falls_back_to_horse_oof(
     assert rc == 0
     assert captured["fit_input"] == str(fit_input)
     assert captured["apply_input"] == str(apply_input)
+
+
+def test_wide_calibrator_wrapper_uses_helper_artifact_paths_for_logreg(
+    asset_root_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = run_paths("pl_source_logreg")
+    update_run_config(
+        "pl_source_logreg",
+        {
+            "run_id": "pl_source_logreg",
+            "feature_profile": "baseline_v3",
+            "feature_build_id": "build_001",
+            "pl_feature_profile": "stack_default",
+            "holdout_year": 2025,
+        },
+    )
+    fit_input = source["oof"] / "pl_stack_default_wide_oof.parquet"
+    apply_input = source["holdout"] / "pl_stack_default_holdout_2025.parquet"
+    fit_input.write_text("wide_oof", encoding="utf-8")
+    apply_input.write_text("holdout", encoding="utf-8")
+
+    captured: dict[str, object] = {}
+
+    def fake_run_wide_calibrator(**kwargs: object) -> int:
+        captured.update(kwargs)
+        Path(str(kwargs["model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["pred_output"])).write_text("pred", encoding="utf-8")
+        Path(str(kwargs["metrics_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text("{}", encoding="utf-8")
+        return 0
+
+    monkeypatch.setattr(
+        "keiba_research.training.commands.run_wide_calibrator", fake_run_wide_calibrator
+    )
+
+    rc = handle_wide_calibrator(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": "wide_run_logreg",
+                "source_run_id": "pl_source_logreg",
+                "method": "logreg",
+                "years": "",
+                "require_years": "",
+                "database_url": "",
+                "log_level": "INFO",
+            },
+        )()
+    )
+    assert rc == 0
+
+    outputs = wide_calibrator_artifact_paths(run_paths("wide_run_logreg"), method="logreg")
+    assert captured["model_output"] == str(outputs["model"])
+    assert captured["meta_output"] == str(outputs["meta"])
+    assert captured["pred_output"] == str(outputs["predictions"])
+    assert captured["metrics_output"] == str(outputs["metrics"])
+
+    bundle = json.loads(run_paths("wide_run_logreg")["bundle"].read_text(encoding="utf-8"))
+    section = bundle["sections"]["wide_calibrator.logreg"]
+    assert section["model"] == asset_relative(outputs["model"])
+    assert section["meta"] == asset_relative(outputs["meta"])
+    assert section["predictions"] == asset_relative(outputs["predictions"])
+    assert section["metrics"] == asset_relative(outputs["metrics"])
 
 
 def test_wide_calibrator_cross_run_config_supports_backtest(
