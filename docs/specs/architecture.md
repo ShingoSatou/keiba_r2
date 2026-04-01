@@ -18,7 +18,6 @@ repo/
 ├── README.md
 ├── keiba_research/
 ├── src/keiba_research/
-├── scripts_v3/
 ├── migrations_v3/
 ├── test_v3/
 ├── docs/
@@ -46,8 +45,6 @@ repo/
   - backtest と run compare
 - `src/keiba_research/importing/`
   - legacy tuning result の one-shot import
-- `scripts_v3/`
-  - CLI から呼ぶ curated subset の既存 v3 実装
 - `migrations_v3/`
   - `keiba_v3` の schema migration
 - `test_v3/`
@@ -59,14 +56,15 @@ repo/
 ```text
 python -m keiba_research
   -> src/keiba_research/<domain>/commands.py
-  -> scripts_v3/*
+  -> src/keiba_research/<domain>/{binary,stacker,pl,...}.py  (run_X(**kwargs))
   -> keiba_research.db.database / keiba_research.rebuild.parsers
   -> PostgreSQL / V3_ASSET_ROOT
 ```
 
 重要な点:
 - public surface は repo-level CLI です。
-- `scripts_v3/` は内部実装として残しており、public API ではありません。
+- `src/keiba_research/<domain>/commands.py` が CLI と実装の接点です。
+- `src/keiba_research/<domain>/<module>.py` が `run_X(**kwargs)` を提供するライブラリ層です。
 - `src/keiba_research/common/` が asset root / bundle / config の永続契約を持ちます。
 
 ## One-glance map
@@ -98,8 +96,7 @@ python -m keiba_research eval ...
 python -m keiba_research import ...
 ```
 
-`scripts_v3/` の個別スクリプトは内部実装として残しています。  
-新しい運用 docs や自動化は、まず repo-level CLI を前提にします。
+新しい運用 docs や自動化は、repo-level CLI を前提にします。
 
 ## Core concepts
 - `run`

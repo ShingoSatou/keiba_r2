@@ -27,6 +27,13 @@
 - current workspace の `V3_ASSET_ROOT` は repo 内でも辿れるようにする
   - 別セッションで asset root を再発見できるよう、current path は `docs/history/active-asset-root.md` に残す
   - shared asset root を切り替えたら、README の入口案内も同じ差分で更新する
+- scripts_v3 の CLI を除去し run_X(**kwargs) ライブラリ関数に置き換える（Phase 3）
+  - `parse_args` / `main` / `if __name__` を廃止し、commands.py から直接 kwargs で呼ぶ設計に統一
+  - argv リスト組み立ての二重管理が不要になり、呼び出し側からパラメータ型が明示的になる
+  - stacker の min/max_train_years は sentinel None を使い、params_json での上書きを可能にする
+- scripts_v3/ を src/keiba_research/ に完全統合・廃止する（Phase 4）
+  - 「scripts_v3 は内部実装」という注釈なしに src/keiba_research 配下に統一することで、import パスが keiba_research.* に揃い、ruff の E402 例外設定も不要になる
+  - config key (final_num_boost_round) と関数引数名 (num_boost_round) の不一致は commands.py のマッピング層で吸収し、将来的には config key 命名の整合が課題として残る
 - GitHub を task / decision 管理面の正規導線にする
   - `Issue` で仮説、修正、運用判断、実験結果の要約を管理する
   - `PR` は code/docs/CI など repo-tracked な差分があるときだけ作る

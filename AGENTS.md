@@ -14,7 +14,8 @@
 - 最初に `docs/specs/index.md` を読み、そこから glossary / architecture / data-contract / operations を辿ります。
 - その後、必要に応じて feature / training / evaluation の specs を読みます。
 - CLI の正確な入口と引数は `docs/specs/cli-reference.md` を見ます。
-- `scripts_v3/` は内部実装です。まず `uv run python -m keiba_research ...` を public entrypoint として扱います。
+- `uv run python -m keiba_research ...` が public entrypoint です。まずここを起点にします。
+- 実装を読む際は `src/keiba_research/<domain>/commands.py` が CLI との接点で、同ディレクトリの `binary.py`, `stacker.py` などが `run_X(**kwargs)` を提供するライブラリ層です。
 - 歴史的背景が必要なときだけ `docs/history/` を見ます。
 
 ## 進め方

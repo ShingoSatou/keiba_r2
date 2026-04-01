@@ -1,7 +1,7 @@
 # CLI Reference
 
 このファイルは、repo-level CLI の現在の public surface をまとめたものです。  
-ここに書くのは `python -m keiba_research ...` の契約です。下位 `scripts_v3/*` の全引数一覧ではありません。
+ここに書くのは `python -m keiba_research ...` の契約です。内部実装の全引数一覧ではありません。
 
 ## Entry point
 ```bash
