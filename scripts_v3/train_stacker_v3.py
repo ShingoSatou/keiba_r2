@@ -70,7 +70,7 @@ logger = logging.getLogger(__name__)
 
 def _meta_code_hash_paths() -> list[Path]:
     return [
-        Path(__file__),
+        Path(__file__).resolve(),
         Path(resolve_path("scripts_v3/train_stacker_v3_common.py")),
         Path(resolve_path("scripts_v3/feature_registry_v3.py")),
         Path(resolve_path("scripts_v3/cv_policy_v3.py")),
@@ -333,7 +333,7 @@ def main(
 ) -> int:
     args = parse_args(argv, default_task=default_task)
     logging.basicConfig(level=getattr(logging, str(args.log_level).upper(), logging.INFO))
-    argv_list = [] if argv is None else list(argv)
+    argv_list = list(sys.argv[1:] if argv is None else argv)
     args._tuned_final_iterations = None  # type: ignore[attr-defined]
     args._applied_params_json = None  # type: ignore[attr-defined]
     params_path = _resolve_params_json_path(args)

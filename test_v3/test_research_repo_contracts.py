@@ -52,6 +52,9 @@ from scripts_v3.train_stacker_v3 import (
     _meta_code_hash_paths,
 )
 from scripts_v3.train_stacker_v3 import (
+    main as train_stack_main,
+)
+from scripts_v3.train_stacker_v3 import (
     parse_args as parse_stack_args,
 )
 from scripts_v3.train_stacker_v3_common import _meta_payload
@@ -1205,6 +1208,53 @@ def test_stacker_meta_code_hash_includes_entrypoint() -> None:
         code_hash_paths=code_hash_paths,
     )
 
+    assert code_hash_paths[0] == Path(resolve_path("scripts_v3/train_stacker_v3.py"))
     assert Path(resolve_path("scripts_v3/train_stacker_v3.py")) in code_hash_paths
     assert Path(resolve_path("scripts_v3/train_stacker_v3_common.py")) in code_hash_paths
+    assert all(path.is_absolute() for path in code_hash_paths)
     assert payload["code_hash"] == hash_files(code_hash_paths)
+
+
+def test_stacker_main_preserves_cli_flags_over_params_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    params_path = tmp_path / "stack_params.json"
+    params_path.write_text(
+        json.dumps(
+            {
+                "min_train_years": 2,
+                "max_train_years": 8,
+                "lgbm_params": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    captured: dict[str, int] = {}
+
+    class StopAfterValidate(Exception):
+        pass
+
+    def fake_validate(args: object) -> None:
+        namespace = args  # keep mypy/ruff happy without changing runtime behavior
+        captured["min_train_years"] = int(namespace.min_train_years)
+        captured["max_train_years"] = int(namespace.max_train_years)
+        raise StopAfterValidate
+
+    monkeypatch.setattr("scripts_v3.train_stacker_v3._validate_args", fake_validate)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "train_stacker_v3.py",
+            "--params-json",
+            str(params_path),
+            "--min-train-years",
+            "9",
+        ],
+    )
+
+    with pytest.raises(StopAfterValidate):
+        train_stack_main()
+
+    assert captured["min_train_years"] == 9
+    assert captured["max_train_years"] == 8
