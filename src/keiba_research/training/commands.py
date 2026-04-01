@@ -274,7 +274,8 @@ def handle_binary(args: argparse.Namespace) -> int:
     if config_path:
         for param, _flag in _BINARY_CONFIG_FLAGS.items():
             if param in config_section:
-                run_kwargs[param] = config_section[param]
+                key = "num_boost_round" if param == "final_num_boost_round" else param
+                run_kwargs[key] = config_section[param]
     rc = int(run_binary_training(**run_kwargs))  # type: ignore[arg-type]
     if rc != 0:
         return rc
@@ -398,7 +399,8 @@ def handle_stack(args: argparse.Namespace) -> int:
     if config_path:
         for param, _flag in _STACKER_CONFIG_FLAGS.items():
             if param in config_section:
-                stack_kwargs[param] = config_section[param]
+                key = "num_boost_round" if param == "final_num_boost_round" else param
+                stack_kwargs[key] = config_section[param]
     rc = int(run_stacker_training(**stack_kwargs))  # type: ignore[arg-type]
     if rc != 0:
         return rc

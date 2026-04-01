@@ -318,10 +318,19 @@ def run_wide_calibrator(
         raise SystemExit("--fit-input is required")
     fit_input_path = resolve_path(fit_input_raw)
     apply_input_path = resolve_path(str(apply_input).strip() if apply_input else fit_input_raw)
-    model_output_path = resolve_path(model_output)
-    meta_output_path = resolve_path(meta_output)
-    pred_output_path = resolve_path(pred_output)
-    metrics_output_path = resolve_path(metrics_output)
+    _m = str(method)
+    model_output_path = _resolve_output_path(
+        model_output, DEFAULT_MODEL_OUTPUT, method=_m, artifact_suffix=""
+    )
+    meta_output_path = _resolve_output_path(
+        meta_output, DEFAULT_META_OUTPUT, method=_m, artifact_suffix=""
+    )
+    pred_output_path = _resolve_output_path(
+        pred_output, DEFAULT_PRED_OUTPUT, method=_m, artifact_suffix=""
+    )
+    metrics_output_path = _resolve_output_path(
+        metrics_output, DEFAULT_METRICS_OUTPUT, method=_m, artifact_suffix=""
+    )
     database_url_resolved = resolve_database_url(database_url)
 
     fit_input_data, fit_input_mode, fit_year_meta = _prepare_dataset(
