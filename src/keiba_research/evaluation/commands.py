@@ -14,7 +14,7 @@ from keiba_research.common.assets import (
     write_json,
 )
 from keiba_research.common.state import update_run_bundle, update_run_metrics
-from scripts_v3.backtest_wide_v3 import run_backtest_wide
+from keiba_research.evaluation.backtest_wide import run_backtest_wide
 
 
 def register(parser: argparse.ArgumentParser) -> None:

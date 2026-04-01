@@ -12,11 +12,22 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts_v3.cv_policy_v3 import (  # noqa: E402
+from keiba_research.common.v3_utils import (
+    append_stem_suffix,
+    resolve_path,
+    save_json,
+)
+from keiba_research.features.registry import (
+    STACKER_TASK_CHOICES,
+    get_stacker_feature_columns,
+)
+from keiba_research.training.binary_common import (
+    coerce_feature_matrix,
+    compute_binary_metrics,
+    fold_integrity,
+    prepare_binary_frame,
+)
+from keiba_research.training.cv_policy import (
     DEFAULT_STACKER_MAX_TRAIN_WINDOW_YEARS,
     DEFAULT_STACKER_MIN_TRAIN_WINDOW_YEARS,
     attach_cv_policy_columns,
@@ -25,17 +36,7 @@ from scripts_v3.cv_policy_v3 import (  # noqa: E402
     make_capped_expanding_window_definition,
     select_recent_window_years,
 )
-from scripts_v3.feature_registry_v3 import (  # noqa: E402
-    STACKER_TASK_CHOICES,
-    get_stacker_feature_columns,
-)
-from scripts_v3.train_binary_v3_common import (  # noqa: E402
-    coerce_feature_matrix,
-    compute_binary_metrics,
-    fold_integrity,
-    prepare_binary_frame,
-)
-from scripts_v3.train_stacker_v3_common import (  # noqa: E402
+from keiba_research.training.stacker_common import (
     DEFAULT_CV_WINDOW_POLICY,
     DEFAULT_EARLY_STOPPING_ROUNDS,
     DEFAULT_HOLDOUT_YEAR,
@@ -59,11 +60,6 @@ from scripts_v3.train_stacker_v3_common import (  # noqa: E402
     _save_lgbm_model,
     _summary,
 )
-from scripts_v3.v3_common import (  # noqa: E402
-    append_stem_suffix,
-    resolve_path,
-    save_json,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +67,9 @@ logger = logging.getLogger(__name__)
 def _meta_code_hash_paths() -> list[Path]:
     return [
         Path(__file__).resolve(),
-        Path(resolve_path("scripts_v3/train_stacker_v3_common.py")),
-        Path(resolve_path("scripts_v3/feature_registry_v3.py")),
-        Path(resolve_path("scripts_v3/cv_policy_v3.py")),
+        Path(resolve_path("src/keiba_research/training/stacker_common.py")),
+        Path(resolve_path("src/keiba_research/features/registry.py")),
+        Path(resolve_path("src/keiba_research/training/cv_policy.py")),
     ]
 
 

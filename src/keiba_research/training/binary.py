@@ -5,7 +5,6 @@ import argparse
 import json
 import logging
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -13,33 +12,26 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts_v3.cv_policy_v3 import (  # noqa: E402
-    DEFAULT_CV_WINDOW_POLICY,
-    DEFAULT_TRAIN_WINDOW_YEARS,
-    build_cv_policy_payload,
-    build_fixed_window_year_folds,
-    make_window_definition,
-    select_recent_window_years,
+from keiba_research.common.v3_utils import (
+    hash_files,
+    resolve_path,
+    save_json,
 )
-from scripts_v3.feature_registry_v3 import (  # noqa: E402
-    BINARY_ENTITY_ID_FEATURES,
-    FEATURE_MANIFEST_VERSION,
-    OPERATIONAL_MODE_CHOICES,
-    get_binary_feature_columns,
-    validate_feature_contract,
-)
-from scripts_v3.metrics_benter_v3_common import (  # noqa: E402
+from keiba_research.evaluation.metrics_benter import (
     benter_nll_and_null,
     benter_r2,
     fit_beta_by_nll,
     logit_clip,
     race_softmax,
 )
-from scripts_v3.train_binary_v3_common import (  # noqa: E402
+from keiba_research.features.registry import (
+    BINARY_ENTITY_ID_FEATURES,
+    FEATURE_MANIFEST_VERSION,
+    OPERATIONAL_MODE_CHOICES,
+    get_binary_feature_columns,
+    validate_feature_contract,
+)
+from keiba_research.training.binary_common import (
     binary_output_paths,
     build_oof_frame,
     coerce_feature_matrix,
@@ -47,10 +39,13 @@ from scripts_v3.train_binary_v3_common import (  # noqa: E402
     fold_integrity,
     prepare_binary_frame,
 )
-from scripts_v3.v3_common import (  # noqa: E402
-    hash_files,
-    resolve_path,
-    save_json,
+from keiba_research.training.cv_policy import (
+    DEFAULT_CV_WINDOW_POLICY,
+    DEFAULT_TRAIN_WINDOW_YEARS,
+    build_cv_policy_payload,
+    build_fixed_window_year_folds,
+    make_window_definition,
+    select_recent_window_years,
 )
 
 logger = logging.getLogger(__name__)
@@ -1240,7 +1235,7 @@ def _build_meta_payload(
         "code_hash": hash_files(
             [
                 Path(__file__),
-                Path(resolve_path("scripts_v3/feature_registry_v3.py")),
+                Path(resolve_path("src/keiba_research/features/registry.py")),
             ]
         ),
     }

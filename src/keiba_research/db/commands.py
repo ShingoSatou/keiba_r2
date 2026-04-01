@@ -9,8 +9,8 @@ from keiba_research.common.assets import (
     jsonl_root,
     rewrite_json_asset_paths,
 )
-from scripts_v3.migrate_v3 import run_migrate
-from scripts_v3.rebuild_v3_db import run_rebuild
+from keiba_research.db.migrate import run_migrate
+from keiba_research.db.rebuild import run_rebuild
 
 
 def register(parser: argparse.ArgumentParser) -> None:

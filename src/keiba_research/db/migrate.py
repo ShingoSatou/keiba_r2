@@ -2,18 +2,13 @@
 from __future__ import annotations
 
 import hashlib
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 import psycopg
 from psycopg.rows import dict_row
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts_v3.v3_common import resolve_database_url  # noqa: E402
+from keiba_research.common.v3_utils import resolve_database_url
 
 
 @dataclass(frozen=True)

@@ -7,9 +7,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from scripts_v3.bankroll_v3 import BankrollConfig
-from scripts_v3.cv_policy_v3 import DEFAULT_CV_WINDOW_POLICY, make_window_definition
-from scripts_v3.v3_common import resolve_path
+from keiba_research.common.v3_utils import resolve_path
+from keiba_research.evaluation.bankroll import BankrollConfig
+from keiba_research.training.cv_policy import DEFAULT_CV_WINDOW_POLICY, make_window_definition
 
 
 def parse_years(raw: str) -> list[int]:

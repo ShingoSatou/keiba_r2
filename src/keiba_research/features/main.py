@@ -2,29 +2,24 @@
 from __future__ import annotations
 
 import logging
-import sys
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from keiba_research.db.database import Database
-from scripts_v3.odds_v3_common import (
-    assert_asof_no_future_reference,
-    load_o1_odds_long,
-    load_o1_place_odds_long,
-    merge_odds_features,
-)
-from scripts_v3.v3_common import (
+from keiba_research.common.v3_utils import (
     assert_sorted,
     hash_files,
     resolve_database_url,
     resolve_path,
     save_json,
+)
+from keiba_research.db.database import Database
+from keiba_research.evaluation.odds_common import (
+    assert_asof_no_future_reference,
+    load_o1_odds_long,
+    load_o1_place_odds_long,
+    merge_odds_features,
 )
 
 logger = logging.getLogger(__name__)
@@ -232,7 +227,7 @@ def run_build_features(
         "code_hash": hash_files(
             [
                 Path(__file__),
-                Path(resolve_path("scripts_v3/odds_v3_common.py")),
+                Path(resolve_path("src/keiba_research/evaluation/odds_common.py")),
             ]
         ),
     }

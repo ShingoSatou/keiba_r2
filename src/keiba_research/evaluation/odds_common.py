@@ -6,8 +6,8 @@ from datetime import timedelta
 import numpy as np
 import pandas as pd
 
-from scripts_v3.metrics_benter_v3_common import logit_clip
-from scripts_v3.v3_common import build_race_datetime
+from keiba_research.common.v3_utils import build_race_datetime
+from keiba_research.evaluation.metrics_benter import logit_clip
 
 FINAL_KBN_PRIORITY = {4: 0, 3: 1, 2: 2, 1: 3}
 DEFAULT_ALLOWED_DATA_KBN = (1, 2, 3, 4)

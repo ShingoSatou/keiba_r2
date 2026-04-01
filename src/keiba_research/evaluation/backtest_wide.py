@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -11,30 +10,26 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import log_loss, roc_auc_score
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from keiba_research.db.database import Database  # noqa: E402
-from scripts_v3.backtest_v3_common import (  # noqa: E402
-    build_backtest_report,
-    check_overwrite,
-    parse_years,
-    round_or_none,
-)
-from scripts_v3.bankroll_v3 import (  # noqa: E402
-    BankrollConfig,
-    allocate_race_bets,
-    compute_max_drawdown,
-    round_down_to_unit,
-)
-from scripts_v3.pl_v3_common import estimate_p_wide_by_race  # noqa: E402
-from scripts_v3.v3_common import (  # noqa: E402
+from keiba_research.common.v3_utils import (
     kumiban_from_horse_nos,
     resolve_database_url,
     resolve_path,
     save_json,
 )
+from keiba_research.db.database import Database
+from keiba_research.evaluation.backtest_common import (
+    build_backtest_report,
+    check_overwrite,
+    parse_years,
+    round_or_none,
+)
+from keiba_research.evaluation.bankroll import (
+    BankrollConfig,
+    allocate_race_bets,
+    compute_max_drawdown,
+    round_down_to_unit,
+)
+from keiba_research.evaluation.pl_common import estimate_p_wide_by_race
 
 logger = logging.getLogger(__name__)
 

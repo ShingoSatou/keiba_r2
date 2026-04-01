@@ -2,18 +2,13 @@
 from __future__ import annotations
 
 import logging
-import sys
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts_v3.feature_registry_v3 import get_binary_safe_te_feature_columns
-from scripts_v3.v3_common import assert_sorted, hash_files, resolve_path, save_json
+from keiba_research.common.v3_utils import assert_sorted, hash_files, resolve_path, save_json
+from keiba_research.features.registry import get_binary_safe_te_feature_columns
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +189,7 @@ def build_features_v3_te_meta_payload(
         "code_hash": hash_files(
             [
                 Path(__file__),
-                Path(resolve_path("scripts_v3/feature_registry_v3.py")),
+                Path(resolve_path("src/keiba_research/features/registry.py")),
             ]
         ),
     }

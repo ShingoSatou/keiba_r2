@@ -22,16 +22,16 @@ from keiba_research.common.state import (
     update_run_config,
     update_run_metrics,
 )
-from scripts_v3.cv_policy_v3 import (
+from keiba_research.features.registry import STACK_LIKE_PL_FEATURE_PROFILES
+from keiba_research.training.binary import run_binary_training
+from keiba_research.training.cv_policy import (
     DEFAULT_STACKER_MAX_TRAIN_WINDOW_YEARS,
     DEFAULT_STACKER_MIN_TRAIN_WINDOW_YEARS,
     DEFAULT_TRAIN_WINDOW_YEARS,
 )
-from scripts_v3.feature_registry_v3 import STACK_LIKE_PL_FEATURE_PROFILES
-from scripts_v3.train_binary_model_v3 import run_binary_training
-from scripts_v3.train_pl_v3 import run_pl_training
-from scripts_v3.train_stacker_v3 import run_stacker_training
-from scripts_v3.train_wide_pair_calibrator_v3 import run_wide_calibrator
+from keiba_research.training.pl import run_pl_training
+from keiba_research.training.stacker import run_stacker_training
+from keiba_research.training.wide_calibrator import run_wide_calibrator
 
 
 class _StoreAndMarkSpecified(argparse.Action):

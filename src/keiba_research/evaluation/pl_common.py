@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from scripts_v3.metrics_benter_v3_common import logit_clip
+from keiba_research.evaluation.metrics_benter import logit_clip
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import sys
 from pathlib import Path
 
 import joblib
@@ -10,21 +9,17 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from keiba_research.db.database import Database  # noqa: E402
-from scripts_v3.backtest_v3_common import parse_years  # noqa: E402
-from scripts_v3.pl_v3_common import estimate_p_wide_by_race  # noqa: E402
-from scripts_v3.v3_common import (  # noqa: E402
+from keiba_research.common.v3_utils import (
     append_stem_suffix,
     hash_files,
     resolve_database_url,
     resolve_path,
     save_json,
 )
-from scripts_v3.wide_pair_calibration_v3 import (  # noqa: E402
+from keiba_research.db.database import Database
+from keiba_research.evaluation.backtest_common import parse_years
+from keiba_research.evaluation.pl_common import estimate_p_wide_by_race
+from keiba_research.evaluation.wide_pair_calibration import (
     apply_wide_pair_calibrator,
     fit_wide_pair_calibrator,
 )
@@ -406,8 +401,8 @@ def run_wide_calibrator(
         "code_hash": hash_files(
             [
                 Path(__file__),
-                Path(resolve_path("scripts_v3/wide_pair_calibration_v3.py")),
-                Path(resolve_path("scripts_v3/pl_v3_common.py")),
+                Path(resolve_path("src/keiba_research/evaluation/wide_pair_calibration.py")),
+                Path(resolve_path("src/keiba_research/evaluation/pl_common.py")),
             ]
         ),
     }

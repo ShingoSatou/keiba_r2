@@ -2,23 +2,17 @@
 from __future__ import annotations
 
 import logging
-import sys
-from pathlib import Path
 
 import joblib
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts_v3.pl_v3_common import estimate_p_wide_by_race  # noqa: E402
-from scripts_v3.train_wide_pair_calibrator_v3 import (  # noqa: E402
+from keiba_research.common.v3_utils import resolve_path
+from keiba_research.evaluation.pl_common import estimate_p_wide_by_race
+from keiba_research.evaluation.wide_pair_calibration import apply_wide_pair_calibrator
+from keiba_research.training.wide_calibrator import (
     _load_input,
     _pair_from_pair_input,
 )
-from scripts_v3.v3_common import resolve_path  # noqa: E402
-from scripts_v3.wide_pair_calibration_v3 import apply_wide_pair_calibrator  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
