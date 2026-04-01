@@ -176,6 +176,7 @@ $V3_ASSET_ROOT/runs/<run_id>/
 ├── config.toml
 ├── bundle.json
 ├── metrics.json
+├── resolved_params.toml
 └── artifacts/
     ├── models/
     ├── oof/
@@ -191,6 +192,12 @@ $V3_ASSET_ROOT/runs/<run_id>/
   - artifact の索引
 - `metrics.json`
   - compare 用に集約した数値指標
+- `resolved_params.toml`
+  - 各 train ステップで commands 層から実際に渡されたパラメータの記録
+  - section key は `bundle.json` と同じ命名（例: `binary.win.lgbm`, `stack.win`）
+  - commands 層で確定した引数と study/config 由来の値を保存する
+  - training 側で適用される内部デフォルトは必ずしも含まれない
+  - 再現確認や study → run の対応追跡に使う
 - `artifacts/`
   - 実ファイル本体
 
@@ -239,6 +246,24 @@ feature_profile = "baseline_v3"
 feature_build_id = "baseline_20260321"
 holdout_year = 2025
 pl_feature_profile = "stack_default"
+```
+
+`resolved_params.toml` の最小例:
+```toml
+[binary.win.lgbm]
+feature_set = "te"
+holdout_year = 2025
+train_window_years = 3
+num_leaves = 63
+learning_rate = 0.03
+final_num_boost_round = 412
+
+[stack.win]
+holdout_year = 2025
+min_train_years = 2
+max_train_years = 3
+num_leaves = 31
+final_num_boost_round = 200
 ```
 
 `bundle.json` の section 最小例:
