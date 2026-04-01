@@ -40,9 +40,6 @@ from keiba_research.tuning.commands import (
 from keiba_research.tuning.commands import (
     handle_binary as handle_tune_binary,
 )
-from keiba_research.tuning.commands import (
-    handle_stack as handle_tune_stack,
-)
 from scripts_v3.cv_policy_v3 import (
     build_capped_expanding_year_folds,
     build_fixed_window_year_folds,
@@ -979,9 +976,13 @@ def test_wide_calibrator_cross_run_config_supports_backtest(
     assert rc == 0
     argv = captured["argv"]
     assert argv[argv.index("--holdout-year") + 1] == "2026"
+    expected_input = (
+        run_paths("wide_run_backtest")["predictions"]
+        / "wide_pair_calibration_isotonic_pred.parquet"
+    )
     assert (
         argv[argv.index("--input") + 1]
-        == str(run_paths("wide_run_backtest")["predictions"] / "wide_pair_calibration_isotonic_pred.parquet")
+        == str(expected_input)
     )
 
 

@@ -8,8 +8,8 @@ export V3_DATABASE_URL=postgresql://...
 ```
 
 この workspace で現在使っている `V3_ASSET_ROOT` は
-[`docs/history/active-asset-root.md`](/home/sato/projects/REPO-v3-research/docs/history/active-asset-root.md)
-で確認します。
+[`docs/history/active-asset-root.md`](../history/active-asset-root.md)
+の公開用テンプレートを見ます。operator ごとの absolute path は repo に commit しません。
 
 optional:
 ```bash
@@ -29,6 +29,17 @@ uv sync --extra optuna --extra xgboost --extra catboost
 
 日常運用では、同じ repo / worktree の中で複数 `run_id` を作って比較します。  
 worktree を増やすのは、設定差ではなくコード系統差を持ちたいときだけです。
+
+## GitHub operating model
+- GitHub で管理する主語は `Issue`, `PR`, `docs`, `decision` です。
+- `run`, `study`, `feature_profile` の source of truth は引き続き research repo と asset/report 側に置きます。
+- branch は `run` ごとではなく、repo-tracked な変更ごとに切ります。
+- parameter 変更だけで repo に差分が出ない実験は、PR を作らず `Issue + report link + run_id/study_id` で追います。
+- `feature_profile` の差分でも既存コードで表現できる実験条件差なら PR は不要です。
+- 新しい特徴量実装、feature registry 変更、train logic 変更、CLI/docs/CI 変更のように repo に差分が出るときは PR を作ります。
+- 採用されなかった実験結果は原則 `Issue + report` で閉じます。再利用価値のある運用知見や判断を残す場合だけ docs-only PR を許容します。
+- `main` は branch protection の対象にしたい branch です。GitHub plan が許す環境では PR 必須、required checks 必須、force push 禁止、branch deletion 禁止、conversation resolution 必須、approval 必須なしを基本にします。
+- 現在の private repo + current GitHub plan では branch protection / ruleset API が 403 になるため、remote enforcement が使えない間は PR-only, squash-only, CI 必須を運用ルールとして維持します。
 
 ## Typical commands
 ### DB rebuild

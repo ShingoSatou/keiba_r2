@@ -27,3 +27,8 @@
 - current workspace の `V3_ASSET_ROOT` は repo 内でも辿れるようにする
   - 別セッションで asset root を再発見できるよう、current path は `docs/history/active-asset-root.md` に残す
   - shared asset root を切り替えたら、README の入口案内も同じ差分で更新する
+- GitHub を task / decision 管理面の正規導線にする
+  - `Issue` で仮説、修正、運用判断、実験結果の要約を管理する
+  - `PR` は code/docs/CI など repo-tracked な差分があるときだけ作る
+  - `run` / `study` / `feature_profile` の source of truth は引き続き repo 外の asset/report 契約に置く
+  - current private repo では GitHub plan 制約で branch protection / ruleset を強制できないため、使える環境になるまでは PR-only, squash-only, CI 必須を運用規律として先に入れる
