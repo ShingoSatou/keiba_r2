@@ -193,9 +193,10 @@ $V3_ASSET_ROOT/runs/<run_id>/
 - `metrics.json`
   - compare 用に集約した数値指標
 - `resolved_params.toml`
-  - 各 train ステップで実際に使われたパラメータの記録
+  - 各 train ステップで commands 層から実際に渡されたパラメータの記録
   - section key は `bundle.json` と同じ命名（例: `binary.win.lgbm`, `stack.win`）
-  - study 由来・config 由来・CLI デフォルト値が統合された最終パラメータを保存する
+  - commands 層で確定した引数と study/config 由来の値を保存する
+  - training 側で適用される内部デフォルトは必ずしも含まれない
   - 再現確認や study → run の対応追跡に使う
 - `artifacts/`
   - 実ファイル本体
@@ -255,14 +256,14 @@ holdout_year = 2025
 train_window_years = 3
 num_leaves = 63
 learning_rate = 0.03
-num_boost_round = 412
+final_num_boost_round = 412
 
 [stack.win]
 holdout_year = 2025
 min_train_years = 2
 max_train_years = 3
 num_leaves = 31
-num_boost_round = 200
+final_num_boost_round = 200
 ```
 
 `bundle.json` の section 最小例:
