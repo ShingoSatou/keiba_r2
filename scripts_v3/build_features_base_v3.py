@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import logging
 import sys
 from collections import deque
@@ -927,49 +926,35 @@ def write_outputs(
     )
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Build v3 base features from keiba_v3 core tables."
-    )
-    parser.add_argument("--from-date", required=True, help="Output start date (YYYY-MM-DD).")
-    parser.add_argument("--to-date", required=True, help="Output end date (YYYY-MM-DD).")
-    parser.add_argument("--history-days", type=int, default=DEFAULT_HISTORY_DAYS)
-    parser.add_argument(
-        "--with-te",
-        action="store_true",
-        help="Include target encoding features (jockey/trainer rolling target_label mean).",
-    )
-    parser.add_argument("--output", default="data/features_base.parquet")
-    parser.add_argument("--meta-output", default="data/features_base_meta.json")
-    parser.add_argument(
-        "--database-url",
-        default="",
-        help="PostgreSQL URL. Default resolution is V3_DATABASE_URL.",
-    )
-    parser.add_argument("--log-level", default="INFO")
-    return parser.parse_args(argv)
+def run_build_features_base(
+    *,
+    from_date: str,
+    to_date: str,
+    history_days: int = DEFAULT_HISTORY_DAYS,
+    output: str = "data/features_base.parquet",
+    meta_output: str = "data/features_base_meta.json",
+    database_url: str = "",
+    with_te: bool = False,
+    log_level: str = "INFO",
+) -> int:
+    logging.basicConfig(level=getattr(logging, log_level.upper(), logging.INFO))
 
-
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
-
-    from_date = date.fromisoformat(args.from_date)
-    to_date = date.fromisoformat(args.to_date)
-    if from_date > to_date:
+    from_date_parsed = date.fromisoformat(from_date)
+    to_date_parsed = date.fromisoformat(to_date)
+    if from_date_parsed > to_date_parsed:
         raise SystemExit("--from-date must be <= --to-date")
 
-    output_path = resolve_path(args.output)
-    meta_path = resolve_path(args.meta_output)
-    database_url = resolve_database_url(args.database_url)
+    output_path = resolve_path(output)
+    meta_path = resolve_path(meta_output)
+    database_url_resolved = resolve_database_url(database_url)
 
-    with Database(connection_string=database_url) as db:
+    with Database(connection_string=database_url_resolved) as db:
         features = build_features_dataframe(
             db=db,
-            from_date=from_date,
-            to_date=to_date,
-            history_days=args.history_days,
-            with_te=bool(args.with_te),
+            from_date=from_date_parsed,
+            to_date=to_date_parsed,
+            history_days=history_days,
+            with_te=bool(with_te),
         )
 
     if features.empty:
@@ -979,16 +964,12 @@ def main(argv: list[str] | None = None) -> int:
         features=features,
         output_path=output_path,
         meta_path=meta_path,
-        database_url=database_url,
-        from_date=from_date,
-        to_date=to_date,
-        history_days=args.history_days,
-        with_te=bool(args.with_te),
+        database_url=database_url_resolved,
+        from_date=from_date_parsed,
+        to_date=to_date_parsed,
+        history_days=history_days,
+        with_te=bool(with_te),
     )
     logger.info("wrote %s", output_path)
     logger.info("wrote %s", meta_path)
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import logging
 import math
 import re
@@ -31,32 +30,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_BIN_EDGES = np.array([0.0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.15, 0.20, 0.30, 1.0])
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Evaluate raw pair-level wide probability calibration for v3."
-    )
-    parser.add_argument("--input", required=True)
-    parser.add_argument("--out-dir", required=True)
-    parser.add_argument("--p-col", default="p_wide")
-    parser.add_argument("--y-col", default="y_wide")
-    parser.add_argument("--race-col", default="race_id")
-    parser.add_argument("--group-col", default="")
-    parser.add_argument("--years", default="", help="Comma-separated valid_year filter.")
-    parser.add_argument(
-        "--require-years",
-        default="",
-        help="Comma-separated years that must exist after year filtering.",
-    )
-    parser.add_argument(
-        "--bins",
-        default="",
-        help="Comma-separated probability bin edges. Must start at 0.0 and end at 1.0.",
-    )
-    parser.add_argument("--ece-bins", type=int, default=10)
-    parser.add_argument("--bootstrap-n", type=int, default=1000)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--log-level", default="INFO")
-    return parser.parse_args(argv)
 
 
 def parse_bin_edges(raw: str) -> np.ndarray:
@@ -578,62 +551,76 @@ def evaluate_group(
     return table, metrics
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-    logging.basicConfig(level=getattr(logging, str(args.log_level).upper(), logging.INFO))
+def run_evaluate_wide_calibration(
+    *,
+    input: str,
+    out_dir: str,
+    p_col: str = "p_wide",
+    y_col: str = "y_wide",
+    race_col: str = "race_id",
+    group_col: str = "",
+    years: str = "",
+    require_years: str = "",
+    bins: str = "",
+    ece_bins: int = 10,
+    bootstrap_n: int = 1000,
+    seed: int = 42,
+    log_level: str = "INFO",
+) -> int:
+    logging.basicConfig(level=getattr(logging, str(log_level).upper(), logging.INFO))
 
-    if int(args.bootstrap_n) < 1:
+    if int(bootstrap_n) < 1:
         raise SystemExit("--bootstrap-n must be >= 1")
-    if int(args.ece_bins) <= 1:
+    if int(ece_bins) <= 1:
         raise SystemExit("--ece-bins must be > 1")
 
-    input_path = resolve_path(args.input)
-    out_dir = resolve_path(args.out_dir)
-    group_col = str(args.group_col).strip()
-    edges = parse_bin_edges(str(args.bins))
+    input_path = resolve_path(input)
+    out_dir_path = resolve_path(out_dir)
+    group_col_stripped = str(group_col).strip()
+    edges = parse_bin_edges(str(bins))
 
     raw = _load_input(input_path)
     prepared = _prepare_input_frame(
         raw,
-        race_col=str(args.race_col),
-        p_col=str(args.p_col),
-        y_col=str(args.y_col),
-        group_col=group_col,
+        race_col=str(race_col),
+        p_col=str(p_col),
+        y_col=str(y_col),
+        group_col=group_col_stripped,
     )
     prepared, selected_years, selected_available_years, available_years = _select_years(
         prepared,
-        years_arg=str(args.years),
-        require_years_arg=str(args.require_years),
+        years_arg=str(years),
+        require_years_arg=str(require_years),
     )
     logger.info(
         "loaded rows=%s races=%s from %s",
         len(prepared),
-        prepared[str(args.race_col)].nunique() if not prepared.empty else 0,
+        prepared[str(race_col)].nunique() if not prepared.empty else 0,
         input_path,
     )
 
-    grouped = bool(group_col)
-    specs = _build_group_specs(prepared, group_col=group_col)
+    grouped = bool(group_col_stripped)
+    specs = _build_group_specs(prepared, group_col=group_col_stripped)
     for idx, (suffix, subset) in enumerate(specs):
         table, metrics = evaluate_group(
             subset,
-            race_col=str(args.race_col),
-            p_col=str(args.p_col),
-            y_col=str(args.y_col),
+            race_col=str(race_col),
+            p_col=str(p_col),
+            y_col=str(y_col),
             edges=edges,
-            ece_bins=int(args.ece_bins),
-            bootstrap_n=int(args.bootstrap_n),
-            seed=int(args.seed) + idx,
+            ece_bins=int(ece_bins),
+            bootstrap_n=int(bootstrap_n),
+            seed=int(seed) + idx,
         )
         metrics["selected_years"] = list(map(int, selected_years))
         metrics["selected_available_years"] = list(map(int, selected_available_years))
         metrics["available_years"] = list(map(int, available_years))
-        metrics["required_years"] = parse_years(str(args.require_years))
+        metrics["required_years"] = parse_years(str(require_years))
         if grouped:
-            metrics["group_col"] = group_col
+            metrics["group_col"] = group_col_stripped
             metrics["group_value"] = suffix
         _write_outputs(
-            out_dir,
+            out_dir_path,
             suffix=suffix,
             grouped=grouped,
             table=table,
@@ -647,7 +634,3 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

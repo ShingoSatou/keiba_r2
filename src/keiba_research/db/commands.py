@@ -9,8 +9,8 @@ from keiba_research.common.assets import (
     jsonl_root,
     rewrite_json_asset_paths,
 )
-from scripts_v3.migrate_v3 import main as migrate_v3_main
-from scripts_v3.rebuild_v3_db import main as rebuild_v3_main
+from scripts_v3.migrate_v3 import run_migrate
+from scripts_v3.rebuild_v3_db import run_rebuild
 
 
 def register(parser: argparse.ArgumentParser) -> None:
@@ -36,10 +36,7 @@ def register(parser: argparse.ArgumentParser) -> None:
 
 
 def handle_migrate(args: argparse.Namespace) -> int:
-    argv: list[str] = []
-    if str(args.database_url).strip():
-        argv.extend(["--database-url", str(args.database_url).strip()])
-    return int(migrate_v3_main(argv))
+    return int(run_migrate(database_url=str(args.database_url).strip()))
 
 
 def handle_rebuild(args: argparse.Namespace) -> int:
@@ -51,23 +48,15 @@ def handle_rebuild(args: argparse.Namespace) -> int:
         if str(args.summary_output).strip()
         else cache_root() / f"keiba_v3_rebuild_summary_{str(args.o1_date).strip()}.json"
     )
-    argv = [
-        "--input-dir",
-        str(input_dir),
-        "--summary-output",
-        str(summary_output),
-        "--from-date",
-        str(args.from_date),
-        "--condition-codes",
-        str(args.condition_codes),
-        "--o1-date",
-        str(args.o1_date),
-    ]
-    if str(args.database_url).strip():
-        argv.extend(["--database-url", str(args.database_url).strip()])
-    if str(args.to_date).strip():
-        argv.extend(["--to-date", str(args.to_date).strip()])
-    rc = int(rebuild_v3_main(argv))
+    rc = run_rebuild(
+        database_url=str(args.database_url).strip(),
+        input_dir=str(input_dir),
+        summary_output=str(summary_output),
+        from_date=str(args.from_date),
+        to_date=str(args.to_date).strip(),
+        condition_codes=str(args.condition_codes),
+        o1_consolidated_date=str(args.o1_date).strip(),
+    )
     if rc != 0:
         return rc
     rewrite_json_asset_paths(summary_output)

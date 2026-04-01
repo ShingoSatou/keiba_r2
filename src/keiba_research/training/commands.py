@@ -28,10 +28,10 @@ from scripts_v3.cv_policy_v3 import (
     DEFAULT_TRAIN_WINDOW_YEARS,
 )
 from scripts_v3.feature_registry_v3 import STACK_LIKE_PL_FEATURE_PROFILES
-from scripts_v3.train_binary_model_v3 import main as train_binary_main
-from scripts_v3.train_pl_v3 import main as train_pl_main
-from scripts_v3.train_stacker_v3 import main as train_stacker_main
-from scripts_v3.train_wide_pair_calibrator_v3 import main as train_wide_calibrator_main
+from scripts_v3.train_binary_model_v3 import run_binary_training
+from scripts_v3.train_pl_v3 import run_pl_training
+from scripts_v3.train_stacker_v3 import run_stacker_training
+from scripts_v3.train_wide_pair_calibrator_v3 import run_wide_calibrator
 
 
 class _StoreAndMarkSpecified(argparse.Action):
@@ -243,44 +243,39 @@ def handle_binary(args: argparse.Namespace) -> int:
     )
 
     model_ext = _binary_model_ext(model)
-    argv = [
-        "--task",
-        task,
-        "--model",
-        model,
-        "--input",
-        str(feature_input),
-        "--holdout-input",
-        str(feature_input),
-        "--oof-output",
-        str(run["oof"] / f"{task}_{model}_oof.parquet"),
-        "--holdout-output",
-        str(run["holdout"] / f"{task}_{model}_holdout_{int(args.holdout_year)}.parquet"),
-        "--metrics-output",
-        str(run["reports"] / f"{task}_{model}_cv_metrics.json"),
-        "--model-output",
-        str(run["models"] / f"{task}_{model}_v3.{model_ext}"),
-        "--all-years-model-output",
-        str(run["models"] / f"{task}_{model}_all_years_v3.{model_ext}"),
-        "--meta-output",
-        str(run["models"] / f"{task}_{model}_bundle_meta_v3.json"),
-        "--feature-manifest-output",
-        str(run["models"] / f"{task}_{model}_feature_manifest_v3.json"),
-        "--holdout-year",
-        str(int(args.holdout_year)),
-        "--log-level",
-        str(args.log_level),
-        "--disable-default-params-json",
-    ]
-    if config_path:
-        _apply_config_to_argv(argv, config_section, flag_map=_BINARY_CONFIG_FLAGS)
-    elif str(args.study_id).strip():
-        argv.extend(["--params-json", _study_params_path(str(args.study_id).strip())])
+    train_window_years_value: int | None = None
     if bool(getattr(args, "train_window_years_explicit", False)) or (
         not str(args.study_id).strip() and not config_path
     ):
-        argv.extend(["--train-window-years", str(int(args.train_window_years))])
-    rc = int(train_binary_main(argv))
+        train_window_years_value = int(args.train_window_years)
+    params_json_path: str | None = None
+    if str(args.study_id).strip():
+        params_json_path = _study_params_path(str(args.study_id).strip())
+    run_kwargs: dict[str, object] = dict(
+        task=task,
+        model=model,
+        input=str(feature_input),
+        holdout_input=str(feature_input),
+        oof_output=str(run["oof"] / f"{task}_{model}_oof.parquet"),
+        holdout_output=str(
+            run["holdout"] / f"{task}_{model}_holdout_{int(args.holdout_year)}.parquet"
+        ),
+        metrics_output=str(run["reports"] / f"{task}_{model}_cv_metrics.json"),
+        model_output=str(run["models"] / f"{task}_{model}_v3.{model_ext}"),
+        all_years_model_output=str(run["models"] / f"{task}_{model}_all_years_v3.{model_ext}"),
+        meta_output=str(run["models"] / f"{task}_{model}_bundle_meta_v3.json"),
+        feature_manifest_output=str(run["models"] / f"{task}_{model}_feature_manifest_v3.json"),
+        holdout_year=int(args.holdout_year),
+        log_level=str(args.log_level),
+        disable_default_params_json=True,
+        params_json=params_json_path,
+        train_window_years=train_window_years_value,
+    )
+    if config_path:
+        for param, _flag in _BINARY_CONFIG_FLAGS.items():
+            if param in config_section:
+                run_kwargs[param] = config_section[param]
+    rc = int(run_binary_training(**run_kwargs))  # type: ignore[arg-type]
     if rc != 0:
         return rc
     _finalize_metadata(
@@ -355,58 +350,56 @@ def handle_stack(args: argparse.Namespace) -> int:
         },
     )
 
-    argv = [
-        "--task",
-        task,
-        "--features-input",
-        str(feature_paths["features"]),
-        "--holdout-input",
-        str(feature_paths["features"]),
-        "--lgbm-oof",
-        str(source["oof"] / f"{task}_lgbm_oof.parquet"),
-        "--xgb-oof",
-        str(source["oof"] / f"{task}_xgb_oof.parquet"),
-        "--cat-oof",
-        str(source["oof"] / f"{task}_cat_oof.parquet"),
-        "--lgbm-holdout",
-        str(source["holdout"] / f"{task}_lgbm_holdout_{int(args.holdout_year)}.parquet"),
-        "--xgb-holdout",
-        str(source["holdout"] / f"{task}_xgb_holdout_{int(args.holdout_year)}.parquet"),
-        "--cat-holdout",
-        str(source["holdout"] / f"{task}_cat_holdout_{int(args.holdout_year)}.parquet"),
-        "--oof-output",
-        str(run["oof"] / f"{task}_stack_oof.parquet"),
-        "--holdout-output",
-        str(run["holdout"] / f"{task}_stack_holdout_{int(args.holdout_year)}.parquet"),
-        "--metrics-output",
-        str(run["reports"] / f"{task}_stack_cv_metrics.json"),
-        "--model-output",
-        str(run["models"] / f"{task}_stack_v3.txt"),
-        "--all-years-model-output",
-        str(run["models"] / f"{task}_stack_all_years_v3.txt"),
-        "--meta-output",
-        str(run["models"] / f"{task}_stack_bundle_meta_v3.json"),
-        "--feature-manifest-output",
-        str(run["models"] / f"{task}_stack_feature_manifest_v3.json"),
-        "--holdout-year",
-        str(int(args.holdout_year)),
-        "--log-level",
-        str(args.log_level),
-        "--disable-default-params-json",
-    ]
-    if config_path:
-        _apply_config_to_argv(argv, config_section, flag_map=_STACKER_CONFIG_FLAGS)
-    elif str(args.study_id).strip():
-        argv.extend(["--params-json", _study_params_path(str(args.study_id).strip())])
+    stack_params_json: str | None = None
+    if str(args.study_id).strip():
+        stack_params_json = _study_params_path(str(args.study_id).strip())
+    stack_min_train_years: int | None = None
     if bool(getattr(args, "min_train_years_explicit", False)) or (
         not str(args.study_id).strip() and not config_path
     ):
-        argv.extend(["--min-train-years", str(int(args.min_train_years))])
+        stack_min_train_years = int(args.min_train_years)
+    stack_max_train_years: int | None = None
     if bool(getattr(args, "max_train_years_explicit", False)) or (
         not str(args.study_id).strip() and not config_path
     ):
-        argv.extend(["--max-train-years", str(int(args.max_train_years))])
-    rc = int(train_stacker_main(argv))
+        stack_max_train_years = int(args.max_train_years)
+    stack_kwargs: dict[str, object] = dict(
+        task=task,
+        features_input=str(feature_paths["features"]),
+        holdout_input=str(feature_paths["features"]),
+        lgbm_oof=str(source["oof"] / f"{task}_lgbm_oof.parquet"),
+        xgb_oof=str(source["oof"] / f"{task}_xgb_oof.parquet"),
+        cat_oof=str(source["oof"] / f"{task}_cat_oof.parquet"),
+        lgbm_holdout=str(
+            source["holdout"] / f"{task}_lgbm_holdout_{int(args.holdout_year)}.parquet"
+        ),
+        xgb_holdout=str(
+            source["holdout"] / f"{task}_xgb_holdout_{int(args.holdout_year)}.parquet"
+        ),
+        cat_holdout=str(
+            source["holdout"] / f"{task}_cat_holdout_{int(args.holdout_year)}.parquet"
+        ),
+        oof_output=str(run["oof"] / f"{task}_stack_oof.parquet"),
+        holdout_output=str(
+            run["holdout"] / f"{task}_stack_holdout_{int(args.holdout_year)}.parquet"
+        ),
+        metrics_output=str(run["reports"] / f"{task}_stack_cv_metrics.json"),
+        model_output=str(run["models"] / f"{task}_stack_v3.txt"),
+        all_years_model_output=str(run["models"] / f"{task}_stack_all_years_v3.txt"),
+        meta_output=str(run["models"] / f"{task}_stack_bundle_meta_v3.json"),
+        feature_manifest_output=str(run["models"] / f"{task}_stack_feature_manifest_v3.json"),
+        holdout_year=int(args.holdout_year),
+        log_level=str(args.log_level),
+        disable_default_params_json=True,
+        params_json=stack_params_json,
+        min_train_years=stack_min_train_years,
+        max_train_years=stack_max_train_years,
+    )
+    if config_path:
+        for param, _flag in _STACKER_CONFIG_FLAGS.items():
+            if param in config_section:
+                stack_kwargs[param] = config_section[param]
+    rc = int(run_stacker_training(**stack_kwargs))  # type: ignore[arg-type]
     if rc != 0:
         return rc
     _finalize_metadata(
@@ -476,70 +469,59 @@ def handle_pl(args: argparse.Namespace) -> int:
         },
     )
 
-    argv = [
-        "--features-input",
-        str(feature_paths["features"]),
-        "--holdout-input",
-        str(feature_paths["features"]),
-        "--pl-feature-profile",
-        profile,
-        "--win-lgbm-oof",
-        str(source["oof"] / "win_lgbm_oof.parquet"),
-        "--win-xgb-oof",
-        str(source["oof"] / "win_xgb_oof.parquet"),
-        "--win-cat-oof",
-        str(source["oof"] / "win_cat_oof.parquet"),
-        "--place-lgbm-oof",
-        str(source["oof"] / "place_lgbm_oof.parquet"),
-        "--place-xgb-oof",
-        str(source["oof"] / "place_xgb_oof.parquet"),
-        "--place-cat-oof",
-        str(source["oof"] / "place_cat_oof.parquet"),
-        "--win-stack-oof",
-        str(source["oof"] / "win_stack_oof.parquet"),
-        "--place-stack-oof",
-        str(source["oof"] / "place_stack_oof.parquet"),
-        "--win-lgbm-holdout",
-        str(source["holdout"] / f"win_lgbm_holdout_{int(args.holdout_year)}.parquet"),
-        "--win-xgb-holdout",
-        str(source["holdout"] / f"win_xgb_holdout_{int(args.holdout_year)}.parquet"),
-        "--win-cat-holdout",
-        str(source["holdout"] / f"win_cat_holdout_{int(args.holdout_year)}.parquet"),
-        "--place-lgbm-holdout",
-        str(source["holdout"] / f"place_lgbm_holdout_{int(args.holdout_year)}.parquet"),
-        "--place-xgb-holdout",
-        str(source["holdout"] / f"place_xgb_holdout_{int(args.holdout_year)}.parquet"),
-        "--place-cat-holdout",
-        str(source["holdout"] / f"place_cat_holdout_{int(args.holdout_year)}.parquet"),
-        "--win-stack-holdout",
-        str(source["holdout"] / f"win_stack_holdout_{int(args.holdout_year)}.parquet"),
-        "--place-stack-holdout",
-        str(source["holdout"] / f"place_stack_holdout_{int(args.holdout_year)}.parquet"),
-        "--oof-output",
-        str(run["oof"] / f"pl_{profile}_oof.parquet"),
-        "--wide-oof-output",
-        str(run["oof"] / f"pl_{profile}_wide_oof.parquet"),
-        "--emit-wide-oof",
-        "--metrics-output",
-        str(run["reports"] / f"pl_{profile}_cv_metrics.json"),
-        "--model-output",
-        str(run["models"] / f"pl_{profile}_recent_window.joblib"),
-        "--all-years-model-output",
-        str(run["models"] / f"pl_{profile}_all_years.joblib"),
-        "--meta-output",
-        str(run["models"] / f"pl_{profile}_bundle_meta.json"),
-        "--holdout-output",
-        str(run["holdout"] / f"pl_{profile}_holdout_{int(args.holdout_year)}.parquet"),
-        "--year-coverage-output",
-        str(run["reports"] / f"pl_{profile}_year_coverage.json"),
-        "--holdout-year",
-        str(int(args.holdout_year)),
-        "--train-window-years",
-        str(int(args.train_window_years)),
-        "--log-level",
-        str(args.log_level),
-    ]
-    rc = int(train_pl_main(argv))
+    rc = int(
+        run_pl_training(
+            features_input=str(feature_paths["features"]),
+            holdout_input=str(feature_paths["features"]),
+            pl_feature_profile=profile,
+            win_lgbm_oof=str(source["oof"] / "win_lgbm_oof.parquet"),
+            win_xgb_oof=str(source["oof"] / "win_xgb_oof.parquet"),
+            win_cat_oof=str(source["oof"] / "win_cat_oof.parquet"),
+            place_lgbm_oof=str(source["oof"] / "place_lgbm_oof.parquet"),
+            place_xgb_oof=str(source["oof"] / "place_xgb_oof.parquet"),
+            place_cat_oof=str(source["oof"] / "place_cat_oof.parquet"),
+            win_stack_oof=str(source["oof"] / "win_stack_oof.parquet"),
+            place_stack_oof=str(source["oof"] / "place_stack_oof.parquet"),
+            win_lgbm_holdout=str(
+                source["holdout"] / f"win_lgbm_holdout_{int(args.holdout_year)}.parquet"
+            ),
+            win_xgb_holdout=str(
+                source["holdout"] / f"win_xgb_holdout_{int(args.holdout_year)}.parquet"
+            ),
+            win_cat_holdout=str(
+                source["holdout"] / f"win_cat_holdout_{int(args.holdout_year)}.parquet"
+            ),
+            place_lgbm_holdout=str(
+                source["holdout"] / f"place_lgbm_holdout_{int(args.holdout_year)}.parquet"
+            ),
+            place_xgb_holdout=str(
+                source["holdout"] / f"place_xgb_holdout_{int(args.holdout_year)}.parquet"
+            ),
+            place_cat_holdout=str(
+                source["holdout"] / f"place_cat_holdout_{int(args.holdout_year)}.parquet"
+            ),
+            win_stack_holdout=str(
+                source["holdout"] / f"win_stack_holdout_{int(args.holdout_year)}.parquet"
+            ),
+            place_stack_holdout=str(
+                source["holdout"] / f"place_stack_holdout_{int(args.holdout_year)}.parquet"
+            ),
+            oof_output=str(run["oof"] / f"pl_{profile}_oof.parquet"),
+            wide_oof_output=str(run["oof"] / f"pl_{profile}_wide_oof.parquet"),
+            emit_wide_oof=True,
+            metrics_output=str(run["reports"] / f"pl_{profile}_cv_metrics.json"),
+            model_output=str(run["models"] / f"pl_{profile}_recent_window.joblib"),
+            all_years_model_output=str(run["models"] / f"pl_{profile}_all_years.joblib"),
+            meta_output=str(run["models"] / f"pl_{profile}_bundle_meta.json"),
+            holdout_output=str(
+                run["holdout"] / f"pl_{profile}_holdout_{int(args.holdout_year)}.parquet"
+            ),
+            year_coverage_output=str(run["reports"] / f"pl_{profile}_year_coverage.json"),
+            holdout_year=int(args.holdout_year),
+            train_window_years=int(args.train_window_years),
+            log_level=str(args.log_level),
+        )
+    )
     if rc != 0:
         return rc
     _finalize_metadata(
@@ -615,31 +597,25 @@ def handle_wide_calibrator(args: argparse.Namespace) -> int:
             run_config_update[key] = value
     update_run_config(args.run_id, run_config_update)
 
-    argv = [
-        "--fit-input",
-        str(fit_input_path),
-        "--apply-input",
-        str(apply_input_path),
-        "--method",
-        str(args.method),
-        "--model-output",
-        str(run["models"] / f"wide_pair_calibrator_{str(args.method)}.joblib"),
-        "--meta-output",
-        str(run["models"] / f"wide_pair_calibrator_{str(args.method)}_bundle_meta.json"),
-        "--pred-output",
-        str(run["predictions"] / f"wide_pair_calibration_{str(args.method)}_pred.parquet"),
-        "--metrics-output",
-        str(metrics_path),
-        "--log-level",
-        str(args.log_level),
-    ]
-    if str(args.years).strip():
-        argv.extend(["--years", str(args.years)])
-    if str(args.require_years).strip():
-        argv.extend(["--require-years", str(args.require_years)])
-    if str(args.database_url).strip():
-        argv.extend(["--database-url", str(args.database_url).strip()])
-    rc = int(train_wide_calibrator_main(argv))
+    rc = int(
+        run_wide_calibrator(
+            fit_input=str(fit_input_path),
+            apply_input=str(apply_input_path),
+            method=str(args.method),
+            model_output=str(run["models"] / f"wide_pair_calibrator_{str(args.method)}.joblib"),
+            meta_output=str(
+                run["models"] / f"wide_pair_calibrator_{str(args.method)}_bundle_meta.json"
+            ),
+            pred_output=str(
+                run["predictions"] / f"wide_pair_calibration_{str(args.method)}_pred.parquet"
+            ),
+            metrics_output=str(metrics_path),
+            database_url=str(args.database_url).strip(),
+            years=str(args.years),
+            require_years=str(args.require_years),
+            log_level=str(args.log_level),
+        )
+    )
     if rc != 0:
         return rc
     _finalize_metadata(

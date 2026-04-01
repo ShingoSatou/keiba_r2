@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import hashlib
 import sys
 from dataclasses import dataclass
@@ -94,63 +93,44 @@ def _apply_one(
     )
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Apply v3 SQL migrations with psycopg.")
-    parser.add_argument(
-        "--database-url",
-        help="PostgreSQL URL (overrides V3_DATABASE_URL / .env).",
-    )
-    parser.add_argument("--dir", default="migrations_v3", help="Migrations directory.")
-    parser.add_argument(
-        "--migrations-table",
-        default="public.schema_migrations_v3",
-        help="Tracking table for applied v3 migrations.",
-    )
-    parser.add_argument("--list", action="store_true", help="List migrations and exit.")
-    parser.add_argument(
-        "--baseline",
-        action="store_true",
-        help="Mark migrations as applied without executing SQL.",
-    )
-    parser.add_argument("--to", help="Apply up to and including this migration filename.")
-    args = parser.parse_args(argv)
+def run_migrate(
+    *,
+    database_url: str = "",
+    log_level: str = "INFO",
+) -> int:
+    import logging
 
-    database_url = resolve_database_url(args.database_url)
-    migrations_dir = Path(args.dir)
+    logging.basicConfig(level=getattr(logging, str(log_level).upper(), logging.INFO))
+
+    database_url_resolved = resolve_database_url(database_url)
+    migrations_dir = Path("migrations_v3")
     migrations = _discover_migrations(migrations_dir)
 
     if not migrations:
         print(f"No migrations found in {migrations_dir}")
         return 0
 
-    with psycopg.connect(database_url, autocommit=True, row_factory=dict_row) as conn:
-        applied = _fetch_applied(conn, str(args.migrations_table))
+    migrations_table = "public.schema_migrations_v3"
+    with psycopg.connect(database_url_resolved, autocommit=True, row_factory=dict_row) as conn:
+        applied = _fetch_applied(conn, migrations_table)
 
-        if args.list:
-            _print_list(migrations, applied)
-            return 0
-
-        target = args.to
+        target = None
         for migration in migrations:
             if migration.version in applied:
                 if target and migration.version == target:
                     break
                 continue
 
-            mode = "BASELINE" if args.baseline else "APPLY"
+            mode = "APPLY"
             print(f"[{mode}] {migration.version}")
             _apply_one(
                 conn,
                 migration,
-                baseline=args.baseline,
-                table_name=str(args.migrations_table),
+                baseline=False,
+                table_name=migrations_table,
             )
 
             if target and migration.version == target:
                 break
 
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

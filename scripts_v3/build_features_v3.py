@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import logging
 import sys
 from datetime import datetime
@@ -38,20 +37,6 @@ SEGMENT_FILTER = {
 }
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Build v3 features from base features + odds snapshots(final/t20/t15/t10)."
-    )
-    parser.add_argument("--input", default="data/features_base.parquet")
-    parser.add_argument("--output", default="data/features_v3.parquet")
-    parser.add_argument("--meta-output", default="data/features_v3_meta.json")
-    parser.add_argument(
-        "--database-url",
-        default="",
-        help="PostgreSQL URL. Default resolution is V3_DATABASE_URL.",
-    )
-    parser.add_argument("--log-level", default="INFO")
-    return parser.parse_args(argv)
 
 
 def _load_finish_positions(db: Database, race_ids: list[int]) -> pd.DataFrame:
@@ -120,14 +105,20 @@ def build_features_v3(input_df: pd.DataFrame, *, database_url: str | None = None
     return frame
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
+def run_build_features(
+    *,
+    input: str = "data/features_base.parquet",
+    output: str = "data/features_v3.parquet",
+    meta_output: str = "data/features_v3_meta.json",
+    database_url: str = "",
+    log_level: str = "INFO",
+) -> int:
+    logging.basicConfig(level=getattr(logging, log_level.upper(), logging.INFO))
 
-    input_path = resolve_path(args.input)
-    output_path = resolve_path(args.output)
-    meta_path = resolve_path(args.meta_output)
-    database_url = resolve_database_url(args.database_url)
+    input_path = resolve_path(input)
+    output_path = resolve_path(output)
+    meta_path = resolve_path(meta_output)
+    database_url = resolve_database_url(database_url)
 
     if not input_path.exists():
         raise SystemExit(f"input not found: {input_path}")
@@ -251,7 +242,3 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("wrote %s", output_path)
     logger.info("wrote %s", meta_path)
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import logging
 import sys
 from pathlib import Path
@@ -24,17 +23,6 @@ from scripts_v3.wide_pair_calibration_v3 import apply_wide_pair_calibrator  # no
 logger = logging.getLogger(__name__)
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Apply pair-level wide calibrator to horse-level or pair-level input."
-    )
-    parser.add_argument("--input", required=True)
-    parser.add_argument("--model", default="models/wide_pair_calibrator_v3.joblib")
-    parser.add_argument("--output", default="data/predictions/race_v3_wide_calibrated.parquet")
-    parser.add_argument("--mc-samples", type=int, default=10_000)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--log-level", default="INFO")
-    return parser.parse_args(argv)
 
 
 def _pair_from_horse_input(frame: pd.DataFrame, *, mc_samples: int, seed: int) -> pd.DataFrame:
@@ -75,13 +63,20 @@ def _pair_from_horse_input(frame: pd.DataFrame, *, mc_samples: int, seed: int) -
     return pair
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-    logging.basicConfig(level=getattr(logging, str(args.log_level).upper(), logging.INFO))
+def run_apply_wide_calibrator(
+    *,
+    input: str,
+    model: str = "models/wide_pair_calibrator_v3.joblib",
+    output: str = "data/predictions/race_v3_wide_calibrated.parquet",
+    mc_samples: int = 10_000,
+    seed: int = 42,
+    log_level: str = "INFO",
+) -> int:
+    logging.basicConfig(level=getattr(logging, str(log_level).upper(), logging.INFO))
 
-    input_path = resolve_path(args.input)
-    model_path = resolve_path(args.model)
-    output_path = resolve_path(args.output)
+    input_path = resolve_path(input)
+    model_path = resolve_path(model)
+    output_path = resolve_path(output)
     if not model_path.exists():
         raise SystemExit(f"calibrator model not found: {model_path}")
 
@@ -93,8 +88,8 @@ def main(argv: list[str] | None = None) -> int:
     elif {"horse_no", "pl_score"} <= set(frame.columns):
         pair = _pair_from_horse_input(
             frame,
-            mc_samples=int(args.mc_samples),
-            seed=int(args.seed),
+            mc_samples=int(mc_samples),
+            seed=int(seed),
         )
     else:
         raise SystemExit("input must be horse-level (pl_score) or pair-level (p_wide/p_wide_raw)")
@@ -106,7 +101,3 @@ def main(argv: list[str] | None = None) -> int:
     calibrated.to_parquet(output_path, index=False)
     logger.info("wrote %s", output_path)
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

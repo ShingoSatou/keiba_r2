@@ -15,8 +15,8 @@ from scripts_v3.cv_policy_v3 import (
     DEFAULT_STACKER_MIN_TRAIN_WINDOW_YEARS,
     DEFAULT_TRAIN_WINDOW_YEARS,
 )
-from scripts_v3.tune_binary_optuna_v3 import main as tune_binary_main
-from scripts_v3.tune_stacker_optuna_v3 import main as tune_stacker_main
+from scripts_v3.tune_binary_optuna_v3 import run_tune_binary
+from scripts_v3.tune_stacker_optuna_v3 import run_tune_stacker
 
 
 def register(parser: argparse.ArgumentParser) -> None:
@@ -83,39 +83,25 @@ def handle_binary(args: argparse.Namespace) -> int:
             "imported": False,
         },
     )
-    argv = [
-        "--task",
-        str(args.task),
-        "--model",
-        str(args.model),
-        "--input-base",
-        str(feature_paths["features"]),
-        "--input-te",
-        str(feature_paths["features_te"]),
-        "--study-name",
-        str(args.study_id),
-        "--storage",
-        str(study["storage"]),
-        "--trials-output",
-        str(study["trials"]),
-        "--best-output",
-        str(study["best"]),
-        "--best-params-output",
-        str(study["selected_trial"]),
-        "--holdout-year",
-        str(int(args.holdout_year)),
-        "--train-window-years",
-        str(int(args.train_window_years)),
-        "--n-trials",
-        str(int(args.n_trials)),
-        "--timeout",
-        str(int(args.timeout)),
-        "--seed",
-        str(int(args.seed)),
-        "--log-level",
-        str(args.log_level),
-    ]
-    rc = int(tune_binary_main(argv))
+    rc = int(
+        run_tune_binary(
+            task=str(args.task),
+            model=str(args.model),
+            input_base=str(feature_paths["features"]),
+            input_te=str(feature_paths["features_te"]),
+            study_name=str(args.study_id),
+            storage=str(study["storage"]),
+            trials_output=str(study["trials"]),
+            best_output=str(study["best"]),
+            best_params_output=str(study["selected_trial"]),
+            holdout_year=int(args.holdout_year),
+            train_window_years=int(args.train_window_years),
+            n_trials=int(args.n_trials),
+            timeout=int(args.timeout),
+            seed=int(args.seed),
+            log_level=str(args.log_level),
+        )
+    )
     if rc != 0:
         return rc
     rewrite_json_asset_paths(study["best"])
@@ -144,43 +130,27 @@ def handle_stack(args: argparse.Namespace) -> int:
             "imported": False,
         },
     )
-    argv = [
-        "--task",
-        task,
-        "--features-input",
-        str(feature_paths["features"]),
-        "--lgbm-oof",
-        str(source["oof"] / f"{task}_lgbm_oof.parquet"),
-        "--xgb-oof",
-        str(source["oof"] / f"{task}_xgb_oof.parquet"),
-        "--cat-oof",
-        str(source["oof"] / f"{task}_cat_oof.parquet"),
-        "--study-name",
-        str(args.study_id),
-        "--storage",
-        str(study["storage"]),
-        "--trials-output",
-        str(study["trials"]),
-        "--best-output",
-        str(study["best"]),
-        "--best-params-output",
-        str(study["selected_trial"]),
-        "--holdout-year",
-        str(int(args.holdout_year)),
-        "--min-train-years",
-        str(int(args.min_train_years)),
-        "--max-train-years",
-        str(int(args.max_train_years)),
-        "--n-trials",
-        str(int(args.n_trials)),
-        "--timeout",
-        str(int(args.timeout)),
-        "--seed",
-        str(int(args.seed)),
-        "--log-level",
-        str(args.log_level),
-    ]
-    rc = int(tune_stacker_main(argv))
+    rc = int(
+        run_tune_stacker(
+            task=task,
+            features_input=str(feature_paths["features"]),
+            lgbm_oof=str(source["oof"] / f"{task}_lgbm_oof.parquet"),
+            xgb_oof=str(source["oof"] / f"{task}_xgb_oof.parquet"),
+            cat_oof=str(source["oof"] / f"{task}_cat_oof.parquet"),
+            study_name=str(args.study_id),
+            storage=str(study["storage"]),
+            trials_output=str(study["trials"]),
+            best_output=str(study["best"]),
+            best_params_output=str(study["selected_trial"]),
+            holdout_year=int(args.holdout_year),
+            min_train_years=int(args.min_train_years),
+            max_train_years=int(args.max_train_years),
+            n_trials=int(args.n_trials),
+            timeout=int(args.timeout),
+            seed=int(args.seed),
+            log_level=str(args.log_level),
+        )
+    )
     if rc != 0:
         return rc
     rewrite_json_asset_paths(study["best"])
