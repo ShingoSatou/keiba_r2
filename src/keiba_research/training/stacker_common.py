@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,22 +11,18 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts_v3.cv_policy_v3 import (  # noqa: E402
-    attach_cv_policy_columns,
-    make_capped_expanding_window_definition,
+from keiba_research.common.v3_utils import (
+    hash_files,
+    resolve_path,
 )
-from scripts_v3.feature_registry_v3 import (  # noqa: E402
+from keiba_research.features.registry import (
     FEATURE_MANIFEST_VERSION,
     STACKER_REQUIRED_PRED_FEATURES_PLACE,
     STACKER_REQUIRED_PRED_FEATURES_WIN,
 )
-from scripts_v3.v3_common import (  # noqa: E402
-    hash_files,
-    resolve_path,
+from keiba_research.training.cv_policy import (
+    attach_cv_policy_columns,
+    make_capped_expanding_window_definition,
 )
 
 logger = logging.getLogger(__name__)

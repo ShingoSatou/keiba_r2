@@ -7,15 +7,15 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 
-from scripts_v3.cv_policy_v3 import (
-    DEFAULT_CV_WINDOW_POLICY,
-    DEFAULT_TRAIN_WINDOW_YEARS,
-    attach_cv_policy_columns,
-)
-from scripts_v3.v3_common import (
+from keiba_research.common.v3_utils import (
     append_stem_suffix,
     assert_fold_integrity,
     resolve_path,
+)
+from keiba_research.training.cv_policy import (
+    DEFAULT_CV_WINDOW_POLICY,
+    DEFAULT_TRAIN_WINDOW_YEARS,
+    attach_cv_policy_columns,
 )
 
 

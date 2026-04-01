@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import sys
 from collections import deque
 from datetime import date, time, timedelta
 from pathlib import Path
@@ -10,24 +9,20 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from keiba_research.db.database import Database  # noqa: E402
-from scripts_v3.build_features_base_v3_common import (  # noqa: E402
+from keiba_research.common.v3_utils import (
+    resolve_database_url,
+    resolve_path,
+)
+from keiba_research.db.database import Database
+from keiba_research.features.base_common import (
     apply_segment_filter as apply_segment_filter_common,
 )
-from scripts_v3.build_features_base_v3_common import (
+from keiba_research.features.base_common import (
     build_features_base_meta,
     write_features_base_outputs,
 )
-from scripts_v3.build_features_base_v3_common import (
+from keiba_research.features.base_common import (
     load_base_data as load_base_data_common,
-)
-from scripts_v3.v3_common import (  # noqa: E402
-    resolve_database_url,
-    resolve_path,
 )
 
 logger = logging.getLogger(__name__)

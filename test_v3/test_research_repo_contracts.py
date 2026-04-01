@@ -27,6 +27,7 @@ from keiba_research.common.state import (
     update_run_metrics,
     update_study_config,
 )
+from keiba_research.common.v3_utils import hash_files, resolve_path
 from keiba_research.db.commands import handle_rebuild
 from keiba_research.evaluation.commands import handle_backtest, handle_compare
 from keiba_research.training.commands import (
@@ -34,24 +35,23 @@ from keiba_research.training.commands import (
     handle_pl,
     handle_wide_calibrator,
 )
+from keiba_research.training.cv_policy import (
+    build_capped_expanding_year_folds,
+    build_fixed_window_year_folds,
+    select_recent_window_years,
+)
+from keiba_research.training.stacker import (
+    _meta_code_hash_paths,
+    run_stacker_training,
+)
+from keiba_research.training.stacker_common import _meta_payload
+from keiba_research.training.wide_calibrator import run_wide_calibrator
 from keiba_research.tuning.commands import (
     _assert_study_writable,
 )
 from keiba_research.tuning.commands import (
     handle_binary as handle_tune_binary,
 )
-from scripts_v3.cv_policy_v3 import (
-    build_capped_expanding_year_folds,
-    build_fixed_window_year_folds,
-    select_recent_window_years,
-)
-from scripts_v3.train_stacker_v3 import (
-    _meta_code_hash_paths,
-    run_stacker_training,
-)
-from scripts_v3.train_stacker_v3_common import _meta_payload
-from scripts_v3.train_wide_pair_calibrator_v3 import run_wide_calibrator
-from scripts_v3.v3_common import hash_files, resolve_path
 
 
 @pytest.fixture()
@@ -1079,7 +1079,7 @@ def test_wide_calibrator_report_separates_fit_and_holdout_eval(
                 )
             return rows
 
-    monkeypatch.setattr("scripts_v3.train_wide_pair_calibrator_v3.Database", FakeDatabase)
+    monkeypatch.setattr("keiba_research.training.wide_calibrator.Database", FakeDatabase)
 
     model_output = asset_root_env / "model.joblib"
     meta_output = asset_root_env / "meta.json"
@@ -1178,9 +1178,9 @@ def test_stacker_meta_code_hash_includes_entrypoint() -> None:
         code_hash_paths=code_hash_paths,
     )
 
-    assert code_hash_paths[0] == Path(resolve_path("scripts_v3/train_stacker_v3.py"))
-    assert Path(resolve_path("scripts_v3/train_stacker_v3.py")) in code_hash_paths
-    assert Path(resolve_path("scripts_v3/train_stacker_v3_common.py")) in code_hash_paths
+    assert code_hash_paths[0] == Path(resolve_path("src/keiba_research/training/stacker.py"))
+    assert Path(resolve_path("src/keiba_research/training/stacker.py")) in code_hash_paths
+    assert Path(resolve_path("src/keiba_research/training/stacker_common.py")) in code_hash_paths
     assert all(path.is_absolute() for path in code_hash_paths)
     assert payload["code_hash"] == hash_files(code_hash_paths)
 
@@ -1211,7 +1211,7 @@ def test_stacker_main_preserves_cli_flags_over_params_json(
         captured["max_train_years"] = int(namespace.max_train_years)
         raise StopAfterValidate
 
-    monkeypatch.setattr("scripts_v3.train_stacker_v3._validate_args", fake_validate)
+    monkeypatch.setattr("keiba_research.training.stacker._validate_args", fake_validate)
 
     with pytest.raises(StopAfterValidate):
         run_stacker_training(

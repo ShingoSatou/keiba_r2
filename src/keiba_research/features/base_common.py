@@ -6,8 +6,8 @@ from typing import Any
 
 import pandas as pd
 
+from keiba_research.common.v3_utils import hash_files, save_json
 from keiba_research.db.database import Database
-from scripts_v3.v3_common import hash_files, save_json
 
 DEFAULT_ALLOWED_CONDITION_CODES = {10, 16, 999}
 DEFAULT_ALLOWED_RACE_TYPE_CODES = {13, 14}

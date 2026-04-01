@@ -8,9 +8,9 @@ from keiba_research.common.assets import (
     rewrite_json_asset_paths,
 )
 from keiba_research.common.state import write_toml
-from scripts_v3.build_features_base_v3 import run_build_features_base
-from scripts_v3.build_features_v3 import run_build_features
-from scripts_v3.build_features_v3_te import run_build_features_te
+from keiba_research.features.base import run_build_features_base
+from keiba_research.features.main import run_build_features
+from keiba_research.features.te import run_build_features_te
 
 
 def register(parser: argparse.ArgumentParser) -> None:

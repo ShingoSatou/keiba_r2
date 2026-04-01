@@ -10,13 +10,13 @@ from keiba_research.common.assets import (
     study_paths,
 )
 from keiba_research.common.state import load_study_config, update_study_config
-from scripts_v3.cv_policy_v3 import (
+from keiba_research.training.cv_policy import (
     DEFAULT_STACKER_MAX_TRAIN_WINDOW_YEARS,
     DEFAULT_STACKER_MIN_TRAIN_WINDOW_YEARS,
     DEFAULT_TRAIN_WINDOW_YEARS,
 )
-from scripts_v3.tune_binary_optuna_v3 import run_tune_binary
-from scripts_v3.tune_stacker_optuna_v3 import run_tune_stacker
+from keiba_research.tuning.binary import run_tune_binary
+from keiba_research.tuning.stacker import run_tune_stacker
 
 
 def register(parser: argparse.ArgumentParser) -> None:

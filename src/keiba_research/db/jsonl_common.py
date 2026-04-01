@@ -8,6 +8,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+from keiba_research.common.v3_utils import save_json
 from keiba_research.db.database import Database
 from keiba_research.rebuild.parsers import (
     DMRecord,
@@ -22,7 +23,6 @@ from keiba_research.rebuild.parsers import (
     TMRecord,
     TrainerRecord,
 )
-from scripts_v3.v3_common import save_json
 
 logger = logging.getLogger(__name__)
 

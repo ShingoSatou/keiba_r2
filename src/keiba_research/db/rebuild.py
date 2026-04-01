@@ -2,16 +2,10 @@
 from __future__ import annotations
 
 import logging
-import sys
 from datetime import date
-from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts_v3 import rebuild_v3_jsonl_common as rebuild_common  # noqa: E402
-from scripts_v3.v3_common import resolve_database_url, resolve_path  # noqa: E402
+from keiba_research.common.v3_utils import resolve_database_url, resolve_path
+from keiba_research.db import jsonl_common as rebuild_common
 
 logger = logging.getLogger(__name__)
 

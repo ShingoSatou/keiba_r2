@@ -22,16 +22,16 @@ from keiba_research.common.state import (
     update_run_config,
     update_run_metrics,
 )
-from scripts_v3.cv_policy_v3 import (
+from keiba_research.features.registry import STACK_LIKE_PL_FEATURE_PROFILES
+from keiba_research.training.binary import run_binary_training
+from keiba_research.training.cv_policy import (
     DEFAULT_STACKER_MAX_TRAIN_WINDOW_YEARS,
     DEFAULT_STACKER_MIN_TRAIN_WINDOW_YEARS,
     DEFAULT_TRAIN_WINDOW_YEARS,
 )
-from scripts_v3.feature_registry_v3 import STACK_LIKE_PL_FEATURE_PROFILES
-from scripts_v3.train_binary_model_v3 import run_binary_training
-from scripts_v3.train_pl_v3 import run_pl_training
-from scripts_v3.train_stacker_v3 import run_stacker_training
-from scripts_v3.train_wide_pair_calibrator_v3 import run_wide_calibrator
+from keiba_research.training.pl import run_pl_training
+from keiba_research.training.stacker import run_stacker_training
+from keiba_research.training.wide_calibrator import run_wide_calibrator
 
 
 class _StoreAndMarkSpecified(argparse.Action):
@@ -274,7 +274,8 @@ def handle_binary(args: argparse.Namespace) -> int:
     if config_path:
         for param, _flag in _BINARY_CONFIG_FLAGS.items():
             if param in config_section:
-                run_kwargs[param] = config_section[param]
+                key = "num_boost_round" if param == "final_num_boost_round" else param
+                run_kwargs[key] = config_section[param]
     rc = int(run_binary_training(**run_kwargs))  # type: ignore[arg-type]
     if rc != 0:
         return rc
@@ -398,7 +399,8 @@ def handle_stack(args: argparse.Namespace) -> int:
     if config_path:
         for param, _flag in _STACKER_CONFIG_FLAGS.items():
             if param in config_section:
-                stack_kwargs[param] = config_section[param]
+                key = "num_boost_round" if param == "final_num_boost_round" else param
+                stack_kwargs[key] = config_section[param]
     rc = int(run_stacker_training(**stack_kwargs))  # type: ignore[arg-type]
     if rc != 0:
         return rc

@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 import math
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -17,13 +16,9 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import brier_score_loss, log_loss
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts_v3.backtest_v3_common import parse_years  # noqa: E402
-from scripts_v3.train_binary_v3_common import reliability_bins  # noqa: E402
-from scripts_v3.v3_common import resolve_path, save_json  # noqa: E402
+from keiba_research.common.v3_utils import resolve_path, save_json
+from keiba_research.evaluation.backtest_common import parse_years
+from keiba_research.training.binary_common import reliability_bins
 
 logger = logging.getLogger(__name__)
 

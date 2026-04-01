@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts_v3.v3_common import append_stem_suffix, resolve_path
+from keiba_research.common.v3_utils import append_stem_suffix, resolve_path
 
 
 def profile_suffix(feature_profile: str) -> str:

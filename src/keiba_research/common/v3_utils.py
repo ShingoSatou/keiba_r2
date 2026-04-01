@@ -15,12 +15,12 @@ from typing import Any
 
 import pandas as pd
 
-from scripts_v3.cv_policy_v3 import (
+from keiba_research.training.cv_policy import (
     FoldSpec,
     build_fixed_window_year_folds,
 )
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 # ---------------------------------------------------------------------------
 # パス / ファイル ユーティリティ
