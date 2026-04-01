@@ -17,6 +17,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts_v3.cv_policy_v3 import (  # noqa: E402
+    DEFAULT_CV_WINDOW_POLICY,
+    build_fixed_window_year_folds,
+)
 from scripts_v3.train_binary_model_v3 import (  # noqa: E402
     DEFAULT_EARLY_STOPPING_ROUNDS,
     DEFAULT_HOLDOUT_YEAR,
@@ -32,13 +36,8 @@ from scripts_v3.train_binary_model_v3 import (  # noqa: E402
 from scripts_v3.train_binary_model_v3 import (
     parse_args as parse_binary_train_args,
 )
-from scripts_v3.train_binary_v3_common import (  # noqa: E402
-    DEFAULT_CV_WINDOW_POLICY,
-    build_fixed_window_year_folds,
-    prepare_binary_frame,
-    resolve_path,
-    save_json,
-)
+from scripts_v3.train_binary_v3_common import prepare_binary_frame  # noqa: E402
+from scripts_v3.v3_common import resolve_path, save_json  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

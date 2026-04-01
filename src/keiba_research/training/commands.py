@@ -25,7 +25,7 @@ from scripts_v3.cv_policy_v3 import (
 from scripts_v3.feature_registry_v3 import STACK_LIKE_PL_FEATURE_PROFILES
 from scripts_v3.train_binary_model_v3 import main as train_binary_main
 from scripts_v3.train_pl_v3 import main as train_pl_main
-from scripts_v3.train_stacker_v3_common import main as train_stacker_main
+from scripts_v3.train_stacker_v3 import main as train_stacker_main
 from scripts_v3.train_wide_pair_calibrator_v3 import main as train_wide_calibrator_main
 
 

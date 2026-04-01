@@ -48,8 +48,18 @@ from scripts_v3.cv_policy_v3 import (
 from scripts_v3.rebuild_v3_db import parse_args as parse_rebuild_args
 from scripts_v3.train_binary_model_v3 import parse_args as parse_binary_args
 from scripts_v3.train_pl_v3 import parse_args as parse_pl_args
-from scripts_v3.train_stacker_v3_common import parse_args as parse_stack_args
+from scripts_v3.train_stacker_v3 import (
+    _meta_code_hash_paths,
+)
+from scripts_v3.train_stacker_v3 import (
+    main as train_stack_main,
+)
+from scripts_v3.train_stacker_v3 import (
+    parse_args as parse_stack_args,
+)
+from scripts_v3.train_stacker_v3_common import _meta_payload
 from scripts_v3.train_wide_pair_calibrator_v3 import main as train_wide_calibrator_script_main
+from scripts_v3.v3_common import hash_files, resolve_path
 
 
 @pytest.fixture()
@@ -1173,3 +1183,78 @@ def test_training_scripts_accept_disable_default_params_json_flag() -> None:
     assert pl_args.train_window_years == 3
     binary_manifest_args = parse_binary_args(["--feature-manifest-output", "models/test.json"])
     assert binary_manifest_args.feature_manifest_output == "models/test.json"
+
+
+def test_stacker_meta_code_hash_includes_entrypoint() -> None:
+    args = parse_stack_args([])
+    code_hash_paths = _meta_code_hash_paths()
+    payload = _meta_payload(
+        args=args,
+        feature_cols=["p_win_lgbm", "p_win_xgb", "p_win_cat"],
+        base_valid_years=[2022, 2023],
+        valid_years=[2024],
+        recent_years=[2022, 2023],
+        input_paths={"features_v3": "data/features_v3.parquet"},
+        output_paths={
+            "oof": Path("data/oof/stack.parquet"),
+            "holdout": Path("data/holdout/stack.parquet"),
+            "metrics": Path("reports/metrics.json"),
+            "model": Path("models/main.txt"),
+            "all_years_model": Path("models/all_years.txt"),
+            "feature_manifest": Path("models/feature_manifest.json"),
+        },
+        holdout_rows=10,
+        holdout_races=2,
+        code_hash_paths=code_hash_paths,
+    )
+
+    assert code_hash_paths[0] == Path(resolve_path("scripts_v3/train_stacker_v3.py"))
+    assert Path(resolve_path("scripts_v3/train_stacker_v3.py")) in code_hash_paths
+    assert Path(resolve_path("scripts_v3/train_stacker_v3_common.py")) in code_hash_paths
+    assert all(path.is_absolute() for path in code_hash_paths)
+    assert payload["code_hash"] == hash_files(code_hash_paths)
+
+
+def test_stacker_main_preserves_cli_flags_over_params_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    params_path = tmp_path / "stack_params.json"
+    params_path.write_text(
+        json.dumps(
+            {
+                "min_train_years": 2,
+                "max_train_years": 8,
+                "lgbm_params": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    captured: dict[str, int] = {}
+
+    class StopAfterValidate(Exception):
+        pass
+
+    def fake_validate(args: object) -> None:
+        namespace = args  # keep mypy/ruff happy without changing runtime behavior
+        captured["min_train_years"] = int(namespace.min_train_years)
+        captured["max_train_years"] = int(namespace.max_train_years)
+        raise StopAfterValidate
+
+    monkeypatch.setattr("scripts_v3.train_stacker_v3._validate_args", fake_validate)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "train_stacker_v3.py",
+            "--params-json",
+            str(params_path),
+            "--min-train-years",
+            "9",
+        ],
+    )
+
+    with pytest.raises(StopAfterValidate):
+        train_stack_main()
+
+    assert captured["min_train_years"] == 9
+    assert captured["max_train_years"] == 8
