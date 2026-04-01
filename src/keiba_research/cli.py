@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 
+from keiba_research.config import commands as config_commands
 from keiba_research.db import commands as db_commands
 from keiba_research.evaluation import commands as evaluation_commands
 from keiba_research.features import commands as features_commands
@@ -34,6 +35,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     eval_parser = subparsers.add_parser("eval", help="Evaluation commands")
     evaluation_commands.register(eval_parser)
+
+    config_parser = subparsers.add_parser("config", help="Config management commands")
+    config_commands.register(config_parser)
 
     import_parser = subparsers.add_parser("import", help="Legacy import commands")
     importing_commands.register(import_parser)
