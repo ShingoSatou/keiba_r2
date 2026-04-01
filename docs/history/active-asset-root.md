@@ -1,11 +1,12 @@
 # Active Asset Root
 
-この repo では、別セッションでも現在の `V3_ASSET_ROOT` を repo 内から確認できるようにします。
+この repo では、asset root の置き方と命名だけを公開 docs に残します。
+operator ごとの absolute path は public repo に commit しません。
 
-現在の shared asset root:
+公開用テンプレート:
 
 ```bash
-export V3_ASSET_ROOT=/home/sato/projects/v3_assets_research_r2_wide_20260325
+export V3_ASSET_ROOT=/path/to/v3_assets_research_r2_wide_YYYYMMDD
 ```
 
 主な用途:
@@ -21,4 +22,6 @@ export V3_ASSET_ROOT=/home/sato/projects/v3_assets_research_r2_wide_20260325
 
 更新ルール:
 
-- この repo の shared asset root を切り替えたら、このファイルと `README.md` の案内を同じ差分で更新します。
+- 公開 repo には machine-specific absolute path を残しません。
+- 実際の path は shell, direnv, `.env`, private note などローカルな手段で管理します。
+- 命名規則や用途が変わるときだけ、このファイルと `README.md` の案内を同じ差分で更新します。

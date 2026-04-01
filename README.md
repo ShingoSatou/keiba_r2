@@ -47,8 +47,9 @@ uv run python -m keiba_research --help
 ```
 
 この workspace で現在使っている `V3_ASSET_ROOT` は
-[`docs/history/active-asset-root.md`](/home/sato/projects/REPO-v3-research/docs/history/active-asset-root.md)
-に固定しています。別セッションではまずここを見れば current path を辿れます。
+[`docs/history/active-asset-root.md`](docs/history/active-asset-root.md)
+に公開用テンプレートを置いています。実際の absolute path は repo には commit せず、
+ローカル環境変数や private note で管理します。
 
 必要な JSONL は `$V3_ASSET_ROOT/data/jsonl/` 配下に置きます。
 

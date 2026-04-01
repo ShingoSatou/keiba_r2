@@ -976,9 +976,13 @@ def test_wide_calibrator_cross_run_config_supports_backtest(
     assert rc == 0
     argv = captured["argv"]
     assert argv[argv.index("--holdout-year") + 1] == "2026"
+    expected_input = (
+        run_paths("wide_run_backtest")["predictions"]
+        / "wide_pair_calibration_isotonic_pred.parquet"
+    )
     assert (
         argv[argv.index("--input") + 1]
-        == str(run_paths("wide_run_backtest")["predictions"] / "wide_pair_calibration_isotonic_pred.parquet")
+        == str(expected_input)
     )
 
 

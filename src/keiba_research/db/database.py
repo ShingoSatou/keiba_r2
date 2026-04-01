@@ -36,7 +36,7 @@ def get_connection_string() -> str:
         DB_PORT: ポート (default: 5432)
         DB_NAME: データベース名 (default: keiba)
         DB_USER: ユーザー名 (default: jv_ingest)
-        DB_PASSWORD: パスワード (default: keiba_pass)
+        DB_PASSWORD: パスワード (default: example_password)
     """
     database_url = os.getenv("DATABASE_URL")
     if database_url:
@@ -46,7 +46,7 @@ def get_connection_string() -> str:
     port = os.getenv("DB_PORT", "5432")
     dbname = os.getenv("DB_NAME", "keiba")
     user = os.getenv("DB_USER", "jv_ingest")
-    password = os.getenv("DB_PASSWORD", "keiba_pass")
+    password = os.getenv("DB_PASSWORD", "example_password")
 
     return f"host={host} port={port} dbname={dbname} user={user} password={password}"
 
