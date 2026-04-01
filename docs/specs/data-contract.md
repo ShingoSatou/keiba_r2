@@ -196,6 +196,9 @@ $V3_ASSET_ROOT/runs/<run_id>/
   - 各 train ステップで commands 層から実際に渡されたパラメータの記録
   - section key は `bundle.json` と同じ命名（例: `binary.win.lgbm`, `stack.win`）
   - commands 層で確定した引数と study/config 由来の値を保存する
+  - non-cat model の反復数 key は `final_num_boost_round`、cat model は `final_iterations` を canonical とする
+  - repo-level wrapper はこれらを training 関数へ渡す際に `num_boost_round` 引数へマップする
+  - 手書き `run_config.toml` では `num_boost_round` も compatibility alias として受理するが、保存時は canonical key に正規化される
   - training 側で適用される内部デフォルトは必ずしも含まれない
   - 再現確認や study → run の対応追跡に使う
 - `artifacts/`
