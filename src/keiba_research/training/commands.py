@@ -11,6 +11,11 @@ from keiba_research.common.assets import (
     run_paths,
     study_paths,
 )
+from keiba_research.common.run_config import (
+    generate_config_from_study,
+    load_run_config,
+    save_resolved_params,
+)
 from keiba_research.common.state import (
     asset_payload,
     update_run_bundle,
@@ -70,6 +75,7 @@ def register(parser: argparse.ArgumentParser) -> None:
     binary.add_argument("--feature-profile", required=True)
     binary.add_argument("--feature-build-id", required=True)
     binary.add_argument("--feature-set", choices=["base", "te"], default="base")
+    binary.add_argument("--config", default="", help="run_config.toml (exclusive with --study-id)")
     binary.add_argument("--study-id", default="")
     binary.add_argument("--holdout-year", type=int, default=2025)
     binary.set_defaults(train_window_years_explicit=False)
@@ -89,6 +95,7 @@ def register(parser: argparse.ArgumentParser) -> None:
     stack.add_argument("--feature-profile", required=True)
     stack.add_argument("--feature-build-id", required=True)
     stack.add_argument("--source-run-id", default="")
+    stack.add_argument("--config", default="", help="run_config.toml (exclusive with --study-id)")
     stack.add_argument("--study-id", default="")
     stack.add_argument("--holdout-year", type=int, default=2025)
     stack.set_defaults(min_train_years_explicit=False, max_train_years_explicit=False)
@@ -145,13 +152,84 @@ def _study_params_path(study_id: str) -> str:
     return str(study_paths(study_id)["selected_trial"])
 
 
+def _validate_config_exclusivity(args: argparse.Namespace) -> None:
+    if str(getattr(args, "config", "")).strip() and str(getattr(args, "study_id", "")).strip():
+        raise SystemExit("--config and --study-id are mutually exclusive")
+
+
+def _load_config_section(config_path: str, *keys: str) -> dict[str, object]:
+    """Load a nested section from a run_config.toml."""
+    config = load_run_config(config_path)
+    section: object = config
+    for key in keys:
+        if not isinstance(section, dict):
+            return {}
+        section = section.get(key, {})
+    return dict(section) if isinstance(section, dict) else {}
+
+
+def _apply_config_to_argv(
+    argv: list[str],
+    section: dict[str, object],
+    *,
+    flag_map: dict[str, str],
+) -> list[str]:
+    """Append config values as CLI flags (only if not already present)."""
+    existing_flags = set(argv)
+    for param, flag in flag_map.items():
+        if param in section and flag not in existing_flags:
+            argv.extend([flag, str(section[param])])
+    return argv
+
+
+_BINARY_CONFIG_FLAGS: dict[str, str] = {
+    "learning_rate": "--learning-rate",
+    "num_leaves": "--num-leaves",
+    "min_data_in_leaf": "--min-data-in-leaf",
+    "lambda_l1": "--lambda-l1",
+    "lambda_l2": "--lambda-l2",
+    "feature_fraction": "--feature-fraction",
+    "bagging_fraction": "--bagging-fraction",
+    "bagging_freq": "--bagging-freq",
+    "final_num_boost_round": "--num-boost-round",
+    "train_window_years": "--train-window-years",
+    "max_depth": "--max-depth",
+    "depth": "--depth",
+}
+
+
+_STACKER_CONFIG_FLAGS: dict[str, str] = {
+    "learning_rate": "--learning-rate",
+    "num_leaves": "--num-leaves",
+    "min_data_in_leaf": "--min-data-in-leaf",
+    "lambda_l1": "--lambda-l1",
+    "lambda_l2": "--lambda-l2",
+    "feature_fraction": "--feature-fraction",
+    "bagging_fraction": "--bagging-fraction",
+    "bagging_freq": "--bagging-freq",
+    "final_num_boost_round": "--num-boost-round",
+    "min_train_years": "--min-train-years",
+    "max_train_years": "--max-train-years",
+}
+
+
 def handle_binary(args: argparse.Namespace) -> int:
+    _validate_config_exclusivity(args)
     feature_paths = feature_build_paths(args.feature_profile, args.feature_build_id)
     run = run_paths(args.run_id)
     task = str(args.task)
     model = str(args.model)
+    feature_set = str(args.feature_set)
+
+    config_path = str(getattr(args, "config", "") or "").strip()
+    config_section: dict[str, object] = {}
+    if config_path:
+        config_section = _load_config_section(config_path, "binary", task, model)
+        if "feature_set" in config_section:
+            feature_set = str(config_section["feature_set"])
+
     feature_input = (
-        feature_paths["features_te"] if str(args.feature_set) == "te" else feature_paths["features"]
+        feature_paths["features_te"] if feature_set == "te" else feature_paths["features"]
     )
 
     update_run_config(
@@ -194,9 +272,13 @@ def handle_binary(args: argparse.Namespace) -> int:
         str(args.log_level),
         "--disable-default-params-json",
     ]
-    if str(args.study_id).strip():
+    if config_path:
+        _apply_config_to_argv(argv, config_section, flag_map=_BINARY_CONFIG_FLAGS)
+    elif str(args.study_id).strip():
         argv.extend(["--params-json", _study_params_path(str(args.study_id).strip())])
-    if bool(getattr(args, "train_window_years_explicit", False)) or not str(args.study_id).strip():
+    if bool(getattr(args, "train_window_years_explicit", False)) or (
+        not str(args.study_id).strip() and not config_path
+    ):
         argv.extend(["--train-window-years", str(int(args.train_window_years))])
     rc = int(train_binary_main(argv))
     if rc != 0:
@@ -205,13 +287,28 @@ def handle_binary(args: argparse.Namespace) -> int:
         run["models"] / f"{task}_{model}_bundle_meta_v3.json",
         run["models"] / f"{task}_{model}_feature_manifest_v3.json",
     )
+    study_section: dict[str, object] = {}
+    if str(args.study_id).strip():
+        study_cfg = generate_config_from_study(str(args.study_id).strip())
+        study_section = study_cfg.get("binary", {}).get(task, {}).get(model, {})  # type: ignore[assignment]
+    save_resolved_params(
+        args.run_id,
+        f"binary.{task}.{model}",
+        {
+            "feature_set": feature_set,
+            "holdout_year": int(args.holdout_year),
+            "train_window_years": int(args.train_window_years),
+            **(study_section or {}),
+            **(dict(config_section) if config_section else {}),
+        },
+    )
 
     metrics_path = run["reports"] / f"{task}_{model}_cv_metrics.json"
     update_run_bundle(
         args.run_id,
         f"binary.{task}.{model}",
         {
-            "feature_set": str(args.feature_set),
+            "feature_set": feature_set,
             "study_id": str(args.study_id).strip() or None,
             **asset_payload(
                 input=feature_input,
@@ -237,10 +334,16 @@ def handle_binary(args: argparse.Namespace) -> int:
 
 
 def handle_stack(args: argparse.Namespace) -> int:
+    _validate_config_exclusivity(args)
     feature_paths = feature_build_paths(args.feature_profile, args.feature_build_id)
     run = run_paths(args.run_id)
     source = run_paths(str(args.source_run_id).strip() or str(args.run_id))
     task = str(args.task)
+
+    config_path = str(getattr(args, "config", "") or "").strip()
+    config_section: dict[str, object] = {}
+    if config_path:
+        config_section = _load_config_section(config_path, "stacker", task)
 
     update_run_config(
         args.run_id,
@@ -291,11 +394,17 @@ def handle_stack(args: argparse.Namespace) -> int:
         str(args.log_level),
         "--disable-default-params-json",
     ]
-    if str(args.study_id).strip():
+    if config_path:
+        _apply_config_to_argv(argv, config_section, flag_map=_STACKER_CONFIG_FLAGS)
+    elif str(args.study_id).strip():
         argv.extend(["--params-json", _study_params_path(str(args.study_id).strip())])
-    if bool(getattr(args, "min_train_years_explicit", False)) or not str(args.study_id).strip():
+    if bool(getattr(args, "min_train_years_explicit", False)) or (
+        not str(args.study_id).strip() and not config_path
+    ):
         argv.extend(["--min-train-years", str(int(args.min_train_years))])
-    if bool(getattr(args, "max_train_years_explicit", False)) or not str(args.study_id).strip():
+    if bool(getattr(args, "max_train_years_explicit", False)) or (
+        not str(args.study_id).strip() and not config_path
+    ):
         argv.extend(["--max-train-years", str(int(args.max_train_years))])
     rc = int(train_stacker_main(argv))
     if rc != 0:
@@ -303,6 +412,21 @@ def handle_stack(args: argparse.Namespace) -> int:
     _finalize_metadata(
         run["models"] / f"{task}_stack_bundle_meta_v3.json",
         run["models"] / f"{task}_stack_feature_manifest_v3.json",
+    )
+    study_section_stack: dict[str, object] = {}
+    if str(args.study_id).strip():
+        study_cfg = generate_config_from_study(str(args.study_id).strip())
+        study_section_stack = study_cfg.get("stacker", {}).get(task, {})  # type: ignore[assignment]
+    save_resolved_params(
+        args.run_id,
+        f"stack.{task}",
+        {
+            "holdout_year": int(args.holdout_year),
+            "min_train_years": int(args.min_train_years),
+            "max_train_years": int(args.max_train_years),
+            **(study_section_stack or {}),
+            **(dict(config_section) if config_section else {}),
+        },
     )
 
     metrics_path = run["reports"] / f"{task}_stack_cv_metrics.json"
@@ -421,6 +545,15 @@ def handle_pl(args: argparse.Namespace) -> int:
     _finalize_metadata(
         run["models"] / f"pl_{profile}_bundle_meta.json",
     )
+    save_resolved_params(
+        args.run_id,
+        f"pl.{profile}",
+        {
+            "pl_feature_profile": profile,
+            "holdout_year": int(args.holdout_year),
+            "train_window_years": int(args.train_window_years),
+        },
+    )
 
     metrics_path = run["reports"] / f"pl_{profile}_cv_metrics.json"
     update_run_bundle(
@@ -511,6 +644,15 @@ def handle_wide_calibrator(args: argparse.Namespace) -> int:
         return rc
     _finalize_metadata(
         run["models"] / f"wide_pair_calibrator_{str(args.method)}_bundle_meta.json",
+    )
+    save_resolved_params(
+        args.run_id,
+        f"wide_calibrator.{str(args.method)}",
+        {
+            "method": str(args.method),
+            "source_run_id": source_run_id,
+            "holdout_year": holdout_year,
+        },
     )
 
     update_run_bundle(
