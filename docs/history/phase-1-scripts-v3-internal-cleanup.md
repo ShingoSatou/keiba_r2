@@ -8,6 +8,7 @@
 ### 1-1. train_stacker_v3_common.py の分割
 - `train_stacker_v3.py`（新規）に `parse_args()`, `main()`, CLI ヘルパーを移動
 - `train_stacker_v3_common.py` にはユーティリティ関数のみ残存
+- stacker meta の `code_hash` は `train_stacker_v3.py` と common / CV / feature registry をまとめて hash するように補強
 - `commands.py`, `test_research_repo_contracts.py` の import を更新
 
 ### 1-2. v3_common.py から bankroll 関数を分離

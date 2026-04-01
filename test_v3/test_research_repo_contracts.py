@@ -48,8 +48,15 @@ from scripts_v3.cv_policy_v3 import (
 from scripts_v3.rebuild_v3_db import parse_args as parse_rebuild_args
 from scripts_v3.train_binary_model_v3 import parse_args as parse_binary_args
 from scripts_v3.train_pl_v3 import parse_args as parse_pl_args
-from scripts_v3.train_stacker_v3 import parse_args as parse_stack_args
+from scripts_v3.train_stacker_v3 import (
+    _meta_code_hash_paths,
+)
+from scripts_v3.train_stacker_v3 import (
+    parse_args as parse_stack_args,
+)
+from scripts_v3.train_stacker_v3_common import _meta_payload
 from scripts_v3.train_wide_pair_calibrator_v3 import main as train_wide_calibrator_script_main
+from scripts_v3.v3_common import hash_files, resolve_path
 
 
 @pytest.fixture()
@@ -1173,3 +1180,31 @@ def test_training_scripts_accept_disable_default_params_json_flag() -> None:
     assert pl_args.train_window_years == 3
     binary_manifest_args = parse_binary_args(["--feature-manifest-output", "models/test.json"])
     assert binary_manifest_args.feature_manifest_output == "models/test.json"
+
+
+def test_stacker_meta_code_hash_includes_entrypoint() -> None:
+    args = parse_stack_args([])
+    code_hash_paths = _meta_code_hash_paths()
+    payload = _meta_payload(
+        args=args,
+        feature_cols=["p_win_lgbm", "p_win_xgb", "p_win_cat"],
+        base_valid_years=[2022, 2023],
+        valid_years=[2024],
+        recent_years=[2022, 2023],
+        input_paths={"features_v3": "data/features_v3.parquet"},
+        output_paths={
+            "oof": Path("data/oof/stack.parquet"),
+            "holdout": Path("data/holdout/stack.parquet"),
+            "metrics": Path("reports/metrics.json"),
+            "model": Path("models/main.txt"),
+            "all_years_model": Path("models/all_years.txt"),
+            "feature_manifest": Path("models/feature_manifest.json"),
+        },
+        holdout_rows=10,
+        holdout_races=2,
+        code_hash_paths=code_hash_paths,
+    )
+
+    assert Path(resolve_path("scripts_v3/train_stacker_v3.py")) in code_hash_paths
+    assert Path(resolve_path("scripts_v3/train_stacker_v3_common.py")) in code_hash_paths
+    assert payload["code_hash"] == hash_files(code_hash_paths)

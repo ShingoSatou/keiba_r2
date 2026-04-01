@@ -337,6 +337,7 @@ def _meta_payload(
     output_paths: dict[str, Path],
     holdout_rows: int,
     holdout_races: int,
+    code_hash_paths: list[Path],
 ) -> dict[str, Any]:
     return {
         "created_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
@@ -377,13 +378,6 @@ def _meta_payload(
         "tuned_defaults": {
             "params_json": getattr(args, "_applied_params_json", None),
         },
-        "code_hash": hash_files(
-            [
-                Path(__file__),
-                Path(resolve_path("scripts_v3/feature_registry_v3.py")),
-                Path(resolve_path("scripts_v3/cv_policy_v3.py")),
-            ]
-        ),
+        "code_hash": hash_files(code_hash_paths),
     }
-
 
