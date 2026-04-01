@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from keiba_research.common.assets import run_paths, study_paths
-from keiba_research.common.state import write_toml
+from keiba_research.common.state import load_study_config, write_toml
 
 
 def load_run_config(path: str | Path) -> dict[str, Any]:
@@ -37,6 +37,8 @@ def _study_params_to_binary_section(
             section[key] = value
     if "final_num_boost_round" in params:
         section["final_num_boost_round"] = int(params["final_num_boost_round"])
+    if "final_iterations" in params:
+        section["final_iterations"] = int(params["final_iterations"])
     if "feature_set" in params:
         section["feature_set"] = str(params["feature_set"])
     if "train_window_years" in params:
@@ -81,15 +83,16 @@ def generate_config_from_study(study_id: str) -> dict[str, Any]:
 
     config: dict[str, Any] = {}
 
-    study_type = str(params.get("study_type", "")).strip()
+    study_cfg = load_study_config(study_id)
+    kind = str(study_cfg.get("kind", params.get("study_type", ""))).strip()
     task = str(params.get("task", "win"))
     model = str(params.get("model", "lgbm"))
 
     has_model_params = (
         "lgbm_params" in params or "xgb_params" in params or "cat_params" in params
     )
-    if study_type == "binary" or has_model_params:
-        if "stacker" in study_id.lower() or "stack" in study_id.lower():
+    if has_model_params:
+        if kind == "stack":
             config.setdefault("stacker", {})
             config["stacker"][task] = _study_params_to_stacker_section(params, task=task)
         else:

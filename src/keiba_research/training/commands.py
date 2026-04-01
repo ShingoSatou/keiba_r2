@@ -11,7 +11,11 @@ from keiba_research.common.assets import (
     run_paths,
     study_paths,
 )
-from keiba_research.common.run_config import load_run_config, save_resolved_params
+from keiba_research.common.run_config import (
+    generate_config_from_study,
+    load_run_config,
+    save_resolved_params,
+)
 from keiba_research.common.state import (
     asset_payload,
     update_run_bundle,
@@ -283,6 +287,10 @@ def handle_binary(args: argparse.Namespace) -> int:
         run["models"] / f"{task}_{model}_bundle_meta_v3.json",
         run["models"] / f"{task}_{model}_feature_manifest_v3.json",
     )
+    study_section: dict[str, object] = {}
+    if str(args.study_id).strip():
+        study_cfg = generate_config_from_study(str(args.study_id).strip())
+        study_section = study_cfg.get("binary", {}).get(task, {}).get(model, {})  # type: ignore[assignment]
     save_resolved_params(
         args.run_id,
         f"binary.{task}.{model}",
@@ -290,6 +298,7 @@ def handle_binary(args: argparse.Namespace) -> int:
             "feature_set": feature_set,
             "holdout_year": int(args.holdout_year),
             "train_window_years": int(args.train_window_years),
+            **(study_section or {}),
             **(dict(config_section) if config_section else {}),
         },
     )
@@ -404,6 +413,10 @@ def handle_stack(args: argparse.Namespace) -> int:
         run["models"] / f"{task}_stack_bundle_meta_v3.json",
         run["models"] / f"{task}_stack_feature_manifest_v3.json",
     )
+    study_section_stack: dict[str, object] = {}
+    if str(args.study_id).strip():
+        study_cfg = generate_config_from_study(str(args.study_id).strip())
+        study_section_stack = study_cfg.get("stacker", {}).get(task, {})  # type: ignore[assignment]
     save_resolved_params(
         args.run_id,
         f"stack.{task}",
@@ -411,6 +424,7 @@ def handle_stack(args: argparse.Namespace) -> int:
             "holdout_year": int(args.holdout_year),
             "min_train_years": int(args.min_train_years),
             "max_train_years": int(args.max_train_years),
+            **(study_section_stack or {}),
             **(dict(config_section) if config_section else {}),
         },
     )
