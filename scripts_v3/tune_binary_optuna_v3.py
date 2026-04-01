@@ -137,7 +137,7 @@ class TrialResult:
     benter_r2_valid_min: float | None
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Tune v3 binary models with Optuna on fixed-sliding yearly CV. "
@@ -737,8 +737,42 @@ def _build_best_params_output(
     return payload
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+def run_tune_binary(
+    *,
+    task: str = "win",
+    model: str = "lgbm",
+    input_base: str = "data/features_v3.parquet",
+    input_te: str = "data/features_v3_te.parquet",
+    study_name: str = "",
+    storage: str = "",
+    trials_output: str = "",
+    best_output: str = "",
+    best_params_output: str = "",
+    holdout_year: int = DEFAULT_HOLDOUT_YEAR,
+    train_window_years: int = DEFAULT_TRAIN_WINDOW_YEARS,
+    n_trials: int = 300,
+    timeout: int = 0,
+    seed: int = DEFAULT_SEED,
+    log_level: str = "INFO",
+) -> int:
+    argv_list: list[str] = [
+        "--task", str(task),
+        "--model", str(model),
+        "--input-base", str(input_base),
+        "--input-te", str(input_te),
+        "--study-name", str(study_name),
+        "--storage", str(storage),
+        "--trials-output", str(trials_output),
+        "--best-output", str(best_output),
+        "--best-params-output", str(best_params_output),
+        "--holdout-year", str(int(holdout_year)),
+        "--train-window-years", str(int(train_window_years)),
+        "--n-trials", str(int(n_trials)),
+        "--timeout", str(int(timeout)),
+        "--seed", str(int(seed)),
+        "--log-level", str(log_level),
+    ]
+    args = _parse_args(argv_list)
     logging.basicConfig(level=getattr(logging, str(args.log_level).upper(), logging.INFO))
     _validate_args(args)
 
@@ -985,7 +1019,3 @@ def main(argv: list[str] | None = None) -> int:
     save_json(outputs["best_params"], best_params_output)
     logger.info("wrote %s", outputs["best_params"])
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -80,7 +80,7 @@ def _default_base_oof_paths(task: str) -> dict[str, str]:
     }
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Tune v3 strict temporal stacker with Optuna on capped-expanding yearly CV. "
@@ -566,8 +566,46 @@ def _build_best_params_output(
     }
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+def run_tune_stacker(
+    *,
+    task: str = "win",
+    features_input: str = "data/features_v3.parquet",
+    lgbm_oof: str = "",
+    xgb_oof: str = "",
+    cat_oof: str = "",
+    study_name: str = "",
+    storage: str = "",
+    trials_output: str = "",
+    best_output: str = "",
+    best_params_output: str = "",
+    holdout_year: int = DEFAULT_HOLDOUT_YEAR,
+    min_train_years: int = DEFAULT_STACKER_MIN_TRAIN_WINDOW_YEARS,
+    max_train_years: int = DEFAULT_STACKER_MAX_TRAIN_WINDOW_YEARS,
+    n_trials: int = 300,
+    timeout: int = 0,
+    seed: int = DEFAULT_SEED,
+    log_level: str = "INFO",
+) -> int:
+    argv_list: list[str] = [
+        "--task", str(task),
+        "--features-input", str(features_input),
+        "--lgbm-oof", str(lgbm_oof),
+        "--xgb-oof", str(xgb_oof),
+        "--cat-oof", str(cat_oof),
+        "--study-name", str(study_name),
+        "--storage", str(storage),
+        "--trials-output", str(trials_output),
+        "--best-output", str(best_output),
+        "--best-params-output", str(best_params_output),
+        "--holdout-year", str(int(holdout_year)),
+        "--min-train-years", str(int(min_train_years)),
+        "--max-train-years", str(int(max_train_years)),
+        "--n-trials", str(int(n_trials)),
+        "--timeout", str(int(timeout)),
+        "--seed", str(int(seed)),
+        "--log-level", str(log_level),
+    ]
+    args = _parse_args(argv_list)
     logging.basicConfig(level=getattr(logging, str(args.log_level).upper(), logging.INFO))
     _validate_args(args)
 
@@ -751,7 +789,3 @@ def main(argv: list[str] | None = None) -> int:
     save_json(outputs["best_params"], best_params_output)
     logger.info("wrote %s", outputs["best_params"])
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

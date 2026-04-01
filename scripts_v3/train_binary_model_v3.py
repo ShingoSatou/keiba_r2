@@ -1246,20 +1246,102 @@ def _build_meta_payload(
     }
 
 
-def main(
-    argv: list[str] | None = None,
+def run_binary_training(
     *,
+    task: str = "win",
+    model: str = "lgbm",
+    input: str = "data/features_v3.parquet",
+    holdout_input: str | None = None,
+    oof_output: str = "",
+    holdout_output: str | None = None,
+    metrics_output: str = "",
+    model_output: str = "",
+    all_years_model_output: str | None = None,
+    meta_output: str | None = None,
+    feature_manifest_output: str | None = None,
+    holdout_year: int = DEFAULT_HOLDOUT_YEAR,
+    log_level: str = "INFO",
+    disable_default_params_json: bool = False,
+    params_json: str | None = None,
+    train_window_years: int | None = None,
+    learning_rate: float | None = None,
+    num_leaves: int | None = None,
+    min_data_in_leaf: int | None = None,
+    lambda_l1: float | None = None,
+    lambda_l2: float | None = None,
+    feature_fraction: float | None = None,
+    bagging_fraction: float | None = None,
+    bagging_freq: int | None = None,
+    num_boost_round: int | None = None,
+    max_depth: int | None = None,
+    depth: int | None = None,
     default_task: str | None = None,
     default_model: str | None = None,
 ) -> int:
-    argv_list = list(sys.argv[1:] if argv is None else argv)
+    argv_list: list[str] = [
+        "--task", str(task),
+        "--model", str(model),
+        "--input", str(input),
+        "--holdout-year", str(int(holdout_year)),
+    ]
+    if holdout_input:
+        argv_list.extend(["--holdout-input", str(holdout_input)])
+    if oof_output:
+        argv_list.extend(["--oof-output", str(oof_output)])
+    if holdout_output:
+        argv_list.extend(["--holdout-output", str(holdout_output)])
+    if metrics_output:
+        argv_list.extend(["--metrics-output", str(metrics_output)])
+    if model_output:
+        argv_list.extend(["--model-output", str(model_output)])
+    if all_years_model_output:
+        argv_list.extend(["--all-years-model-output", str(all_years_model_output)])
+    if meta_output:
+        argv_list.extend(["--meta-output", str(meta_output)])
+    if feature_manifest_output:
+        argv_list.extend(["--feature-manifest-output", str(feature_manifest_output)])
+    if disable_default_params_json:
+        argv_list.append("--disable-default-params-json")
+    if params_json:
+        argv_list.extend(["--params-json", str(params_json)])
+    if train_window_years is not None:
+        argv_list.extend(["--train-window-years", str(int(train_window_years))])
+    if learning_rate is not None:
+        argv_list.extend(["--learning-rate", str(float(learning_rate))])
+    if num_leaves is not None:
+        argv_list.extend(["--num-leaves", str(int(num_leaves))])
+    if min_data_in_leaf is not None:
+        argv_list.extend(["--min-data-in-leaf", str(int(min_data_in_leaf))])
+    if lambda_l1 is not None:
+        argv_list.extend(["--lambda-l1", str(float(lambda_l1))])
+    if lambda_l2 is not None:
+        argv_list.extend(["--lambda-l2", str(float(lambda_l2))])
+    if feature_fraction is not None:
+        argv_list.extend(["--feature-fraction", str(float(feature_fraction))])
+    if bagging_fraction is not None:
+        argv_list.extend(["--bagging-fraction", str(float(bagging_fraction))])
+    if bagging_freq is not None:
+        argv_list.extend(["--bagging-freq", str(int(bagging_freq))])
+    if num_boost_round is not None:
+        argv_list.extend(["--num-boost-round", str(int(num_boost_round))])
+    if max_depth is not None:
+        argv_list.extend(["--max-depth", str(int(max_depth))])
+    if depth is not None:
+        argv_list.extend(["--depth", str(int(depth))])
+    argv_list.extend(["--log-level", str(log_level)])
+
     args = parse_args(argv_list, default_task=default_task, default_model=default_model)
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
 
     args._tuned_final_iterations = None  # type: ignore[attr-defined]
     args._applied_params_json = None  # type: ignore[attr-defined]
     args._applied_params_feature_set = None  # type: ignore[attr-defined]
-    params_path = _resolve_params_json_path(args)
+    if params_json:
+        params_path = resolve_path(str(params_json))
+        if not params_path.exists():
+            raise SystemExit(f"params-json not found: {params_path}")
+    else:
+        params_path = _resolve_params_json_path(args)
     if params_path is not None:
         params = json.loads(params_path.read_text(encoding="utf-8"))
         if not isinstance(params, dict):
@@ -1424,7 +1506,3 @@ def main(
     logger.info("wrote %s", outputs["feature_manifest"])
     logger.info("wrote %s", outputs["meta"])
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

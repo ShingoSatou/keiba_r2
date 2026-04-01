@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import logging
 import sys
 from datetime import datetime
@@ -41,16 +40,6 @@ REQUIRED_BASE_V3_COLUMNS = [
 ]
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Build v3 TE features by merging features_v3 with safe TE extra columns."
-    )
-    parser.add_argument("--base-input", default="data/features_v3.parquet")
-    parser.add_argument("--te-source-input", default="data/features_base_te.parquet")
-    parser.add_argument("--output", default="data/features_v3_te.parquet")
-    parser.add_argument("--meta-output", default="data/features_v3_te_meta.json")
-    parser.add_argument("--log-level", default="INFO")
-    return parser.parse_args(argv)
 
 
 def _require_columns(frame: pd.DataFrame, columns: list[str], *, label: str) -> None:
@@ -211,14 +200,20 @@ def build_features_v3_te_meta_payload(
     }
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
+def run_build_features_te(
+    *,
+    base_input: str = "data/features_v3.parquet",
+    te_source_input: str = "data/features_base_te.parquet",
+    output: str = "data/features_v3_te.parquet",
+    meta_output: str = "data/features_v3_te_meta.json",
+    log_level: str = "INFO",
+) -> int:
+    logging.basicConfig(level=getattr(logging, log_level.upper(), logging.INFO))
 
-    base_input_path = resolve_path(args.base_input)
-    te_source_input_path = resolve_path(args.te_source_input)
-    output_path = resolve_path(args.output)
-    meta_output_path = resolve_path(args.meta_output)
+    base_input_path = resolve_path(base_input)
+    te_source_input_path = resolve_path(te_source_input)
+    output_path = resolve_path(output)
+    meta_output_path = resolve_path(meta_output)
 
     if not base_input_path.exists():
         raise SystemExit(f"base-input not found: {base_input_path}")
@@ -250,7 +245,3 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("wrote %s", output_path)
     logger.info("wrote %s", meta_output_path)
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

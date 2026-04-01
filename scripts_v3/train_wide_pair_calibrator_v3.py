@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import argparse
 import logging
 import sys
 from pathlib import Path
@@ -44,45 +43,6 @@ def _combined_suffix(*parts: str) -> str:
     return "_".join(cleaned)
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Train pair-level wide calibrator from fit input and apply it "
-            "to evaluation input."
-        )
-    )
-    parser.add_argument(
-        "--input",
-        default="",
-        help="Deprecated alias for --fit-input. Kept for direct-script compatibility.",
-    )
-    parser.add_argument("--fit-input", default=DEFAULT_INPUT)
-    parser.add_argument(
-        "--apply-input",
-        default="",
-        help="Optional evaluation input. Defaults to fit input when omitted.",
-    )
-    parser.add_argument("--database-url", default="")
-    parser.add_argument("--method", choices=["isotonic", "logreg"], default="isotonic")
-    parser.add_argument("--mc-samples", type=int, default=10_000)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument(
-        "--artifact-suffix",
-        default="",
-        help="Optional suffix appended to default artifact/output filenames.",
-    )
-    parser.add_argument("--years", default="", help="Comma-separated valid_year filter.")
-    parser.add_argument(
-        "--require-years",
-        default="",
-        help="Comma-separated years that must exist after year filtering.",
-    )
-    parser.add_argument("--model-output", default=DEFAULT_MODEL_OUTPUT)
-    parser.add_argument("--meta-output", default=DEFAULT_META_OUTPUT)
-    parser.add_argument("--pred-output", default=DEFAULT_PRED_OUTPUT)
-    parser.add_argument("--metrics-output", default=DEFAULT_METRICS_OUTPUT)
-    parser.add_argument("--log-level", default="INFO")
-    return parser.parse_args(argv)
 
 
 def _resolve_output_path(raw: str, default_path: str, *, method: str, artifact_suffix: str) -> Path:
@@ -342,88 +302,81 @@ def _dataset_metrics(frame: pd.DataFrame, *, year_meta: dict[str, object]) -> di
     }
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-    logging.basicConfig(level=getattr(logging, str(args.log_level).upper(), logging.INFO))
+def run_wide_calibrator(
+    *,
+    fit_input: str,
+    apply_input: str | None = None,
+    method: str = "isotonic",
+    model_output: str = DEFAULT_MODEL_OUTPUT,
+    meta_output: str = DEFAULT_META_OUTPUT,
+    pred_output: str = DEFAULT_PRED_OUTPUT,
+    metrics_output: str = DEFAULT_METRICS_OUTPUT,
+    database_url: str = "",
+    years: str = "",
+    require_years: str = "",
+    log_level: str = "INFO",
+) -> int:
+    logging.basicConfig(level=getattr(logging, str(log_level).upper(), logging.INFO))
 
-    fit_input_raw = str(args.input).strip() or str(args.fit_input).strip()
+    fit_input_raw = str(fit_input).strip()
     if not fit_input_raw:
         raise SystemExit("--fit-input is required")
     fit_input_path = resolve_path(fit_input_raw)
-    apply_input_path = resolve_path(str(args.apply_input).strip() or fit_input_raw)
-    model_output = _resolve_output_path(
-        args.model_output,
-        DEFAULT_MODEL_OUTPUT,
-        method=str(args.method),
-        artifact_suffix=str(args.artifact_suffix),
-    )
-    meta_output = _resolve_output_path(
-        args.meta_output,
-        DEFAULT_META_OUTPUT,
-        method=str(args.method),
-        artifact_suffix=str(args.artifact_suffix),
-    )
-    pred_output = _resolve_output_path(
-        args.pred_output,
-        DEFAULT_PRED_OUTPUT,
-        method=str(args.method),
-        artifact_suffix=str(args.artifact_suffix),
-    )
-    metrics_output = _resolve_output_path(
-        args.metrics_output,
-        DEFAULT_METRICS_OUTPUT,
-        method=str(args.method),
-        artifact_suffix=str(args.artifact_suffix),
-    )
-    database_url = resolve_database_url(args.database_url)
+    apply_input_path = resolve_path(str(apply_input).strip() if apply_input else fit_input_raw)
+    model_output_path = resolve_path(model_output)
+    meta_output_path = resolve_path(meta_output)
+    pred_output_path = resolve_path(pred_output)
+    metrics_output_path = resolve_path(metrics_output)
+    database_url_resolved = resolve_database_url(database_url)
 
-    fit_input, fit_input_mode, fit_year_meta = _prepare_dataset(
+    fit_input_data, fit_input_mode, fit_year_meta = _prepare_dataset(
         path=fit_input_path,
-        mc_samples=int(args.mc_samples),
-        seed=int(args.seed),
-        years_arg=str(args.years),
-        require_years_arg=str(args.require_years),
+        mc_samples=10_000,
+        seed=42,
+        years_arg=str(years),
+        require_years_arg=str(require_years),
         filter_years=True,
     )
-    apply_input, apply_input_mode, apply_year_meta = _prepare_dataset(
+    apply_input_data, apply_input_mode, apply_year_meta = _prepare_dataset(
         path=apply_input_path,
-        mc_samples=int(args.mc_samples),
-        seed=int(args.seed),
+        mc_samples=10_000,
+        seed=42,
         filter_years=False,
     )
     race_ids = sorted(
-        set(fit_input["race_id"].unique().tolist()) | set(apply_input["race_id"].unique().tolist())
+        set(fit_input_data["race_id"].unique().tolist())
+        | set(apply_input_data["race_id"].unique().tolist())
     )
 
-    with Database(connection_string=database_url) as db:
+    with Database(connection_string=database_url_resolved) as db:
         top3_map = _fetch_top3_horse_nos(db, race_ids)
 
-    fit_labeled = _attach_labels(fit_input, top3_map)
-    apply_labeled = _attach_labels(apply_input, top3_map)
+    fit_labeled = _attach_labels(fit_input_data, top3_map)
+    apply_labeled = _attach_labels(apply_input_data, top3_map)
     bundle = fit_wide_pair_calibrator(
         fit_labeled["p_wide_raw"].to_numpy(dtype=float),
         fit_labeled["y_wide"].to_numpy(dtype=float),
-        method=str(args.method),
+        method=str(method),
     )
     fit_calibrated = apply_wide_pair_calibrator(fit_labeled, bundle)
     holdout_eval = apply_wide_pair_calibrator(apply_labeled, bundle)
     if "p_wide" not in fit_calibrated.columns or "p_wide" not in holdout_eval.columns:
         raise SystemExit("wide pair calibrator did not produce p_wide")
 
-    model_output.parent.mkdir(parents=True, exist_ok=True)
-    pred_output.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(bundle, model_output)
-    holdout_eval.to_parquet(pred_output, index=False)
+    model_output_path.parent.mkdir(parents=True, exist_ok=True)
+    pred_output_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(bundle, model_output_path)
+    holdout_eval.to_parquet(pred_output_path, index=False)
 
     metrics = {
-        "method": str(args.method),
+        "method": str(method),
         "fit_input_mode": fit_input_mode,
         "apply_input_mode": apply_input_mode,
         "fit": _dataset_metrics(fit_calibrated, year_meta=fit_year_meta),
         "holdout_eval": _dataset_metrics(holdout_eval, year_meta=apply_year_meta),
-        "artifact_suffix": str(args.artifact_suffix).strip(),
+        "artifact_suffix": "",
     }
-    save_json(metrics_output, metrics)
+    save_json(metrics_output_path, metrics)
 
     meta = {
         "created_at": bundle["created_at"],
@@ -433,12 +386,12 @@ def main(argv: list[str] | None = None) -> int:
         "input_mode": fit_input_mode,
         "fit_input_mode": fit_input_mode,
         "apply_input_mode": apply_input_mode,
-        "method": str(args.method),
-        "artifact_suffix": str(args.artifact_suffix).strip(),
+        "method": str(method),
+        "artifact_suffix": "",
         "database_url_env_priority": ["V3_DATABASE_URL"],
-        "model_output": str(model_output),
-        "pred_output": str(pred_output),
-        "metrics_output": str(metrics_output),
+        "model_output": str(model_output_path),
+        "pred_output": str(pred_output_path),
+        "metrics_output": str(metrics_output_path),
         "fit": {
             **fit_year_meta,
             "rows": int(len(fit_calibrated)),
@@ -458,7 +411,7 @@ def main(argv: list[str] | None = None) -> int:
             ]
         ),
     }
-    save_json(meta_output, meta)
+    save_json(meta_output_path, meta)
 
     logger.info(
         "trained wide pair calibrator fit_rows=%s fit_races=%s holdout_rows=%s holdout_races=%s",
@@ -467,12 +420,8 @@ def main(argv: list[str] | None = None) -> int:
         len(holdout_eval),
         metrics["holdout_eval"]["races"],
     )
-    logger.info("wrote %s", model_output)
-    logger.info("wrote %s", pred_output)
-    logger.info("wrote %s", metrics_output)
-    logger.info("wrote %s", meta_output)
+    logger.info("wrote %s", model_output_path)
+    logger.info("wrote %s", pred_output_path)
+    logger.info("wrote %s", metrics_output_path)
+    logger.info("wrote %s", meta_output_path)
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

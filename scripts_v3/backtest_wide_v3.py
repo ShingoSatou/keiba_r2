@@ -45,7 +45,7 @@ POLICY_TEXT_COLUMNS = ("cv_window_policy", "window_definition")
 POLICY_INT_COLUMNS = ("train_window_years", "holdout_year")
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Wide backtest for v3 (pl_score -> MC -> p_wide -> EV -> Kelly)."
     )
@@ -970,8 +970,28 @@ def _simulate_backtest(
     return summary, monthly_rows, bet_records
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+def run_backtest_wide(
+    *,
+    input: str = "data/oof/pl_v3_oof.parquet",
+    output: str = "data/backtest_v3/backtest_wide_v3_direct.json",
+    meta_output: str = "data/backtest_v3/backtest_wide_v3_direct_meta.json",
+    holdout_year: int = DEFAULT_HOLDOUT_YEAR,
+    database_url: str = "",
+    years: str = "",
+    require_years: str = "",
+    log_level: str = "INFO",
+) -> int:
+    argv_list: list[str] = [
+        "--input", str(input),
+        "--output", str(output),
+        "--meta-output", str(meta_output),
+        "--holdout-year", str(int(holdout_year)),
+        "--database-url", str(database_url),
+        "--years", str(years),
+        "--require-years", str(require_years),
+        "--log-level", str(log_level),
+    ]
+    args = _parse_args(argv_list)
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
 
     if args.holdout_year <= 0:
@@ -1066,7 +1086,3 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("wrote %s", output_path)
     logger.info("wrote %s", meta_output_path)
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

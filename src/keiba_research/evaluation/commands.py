@@ -14,7 +14,7 @@ from keiba_research.common.assets import (
     write_json,
 )
 from keiba_research.common.state import update_run_bundle, update_run_metrics
-from scripts_v3.backtest_wide_v3 import main as backtest_wide_main
+from scripts_v3.backtest_wide_v3 import run_backtest_wide
 
 
 def register(parser: argparse.ArgumentParser) -> None:
@@ -70,25 +70,18 @@ def handle_backtest(args: argparse.Namespace) -> int:
 
     output_path = run["reports"] / f"backtest_{str(args.input_kind)}.json"
     meta_path = run["reports"] / f"backtest_{str(args.input_kind)}_meta.json"
-    argv = [
-        "--input",
-        str(input_path),
-        "--output",
-        str(output_path),
-        "--meta-output",
-        str(meta_path),
-        "--holdout-year",
-        str(int(effective_holdout_year)),
-        "--log-level",
-        str(args.log_level),
-    ]
-    if str(args.database_url).strip():
-        argv.extend(["--database-url", str(args.database_url).strip()])
-    if str(args.years).strip():
-        argv.extend(["--years", str(args.years)])
-    if str(args.require_years).strip():
-        argv.extend(["--require-years", str(args.require_years)])
-    rc = int(backtest_wide_main(argv))
+    rc = int(
+        run_backtest_wide(
+            input=str(input_path),
+            output=str(output_path),
+            meta_output=str(meta_path),
+            holdout_year=int(effective_holdout_year),
+            database_url=str(args.database_url).strip(),
+            years=str(args.years),
+            require_years=str(args.require_years),
+            log_level=str(args.log_level),
+        )
+    )
     if rc != 0:
         return rc
     rewrite_json_asset_paths(meta_path)

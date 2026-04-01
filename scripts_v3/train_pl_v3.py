@@ -1389,8 +1389,93 @@ def _score_holdout_predictions(
     }
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
+def run_pl_training(
+    *,
+    features_input: str = "data/features_v3.parquet",
+    holdout_input: str | None = None,
+    pl_feature_profile: str = "stack_default",
+    win_lgbm_oof: str = "data/oof/win_lgbm_oof.parquet",
+    win_xgb_oof: str = "data/oof/win_xgb_oof.parquet",
+    win_cat_oof: str = "data/oof/win_cat_oof.parquet",
+    place_lgbm_oof: str = "data/oof/place_lgbm_oof.parquet",
+    place_xgb_oof: str = "data/oof/place_xgb_oof.parquet",
+    place_cat_oof: str = "data/oof/place_cat_oof.parquet",
+    win_stack_oof: str = "data/oof/win_stack_oof.parquet",
+    place_stack_oof: str = "data/oof/place_stack_oof.parquet",
+    win_lgbm_holdout: str | None = None,
+    win_xgb_holdout: str | None = None,
+    win_cat_holdout: str | None = None,
+    place_lgbm_holdout: str | None = None,
+    place_xgb_holdout: str | None = None,
+    place_cat_holdout: str | None = None,
+    win_stack_holdout: str | None = None,
+    place_stack_holdout: str | None = None,
+    oof_output: str = "",
+    wide_oof_output: str | None = None,
+    emit_wide_oof: bool = False,
+    metrics_output: str = "",
+    model_output: str = "",
+    all_years_model_output: str | None = None,
+    meta_output: str | None = None,
+    holdout_output: str | None = None,
+    year_coverage_output: str | None = None,
+    holdout_year: int = DEFAULT_HOLDOUT_YEAR,
+    train_window_years: int = DEFAULT_PL_TRAIN_WINDOW_YEARS,
+    log_level: str = "INFO",
+) -> int:
+    argv_list: list[str] = [
+        "--features-input", str(features_input),
+        "--pl-feature-profile", str(pl_feature_profile),
+        "--win-lgbm-oof", str(win_lgbm_oof),
+        "--win-xgb-oof", str(win_xgb_oof),
+        "--win-cat-oof", str(win_cat_oof),
+        "--place-lgbm-oof", str(place_lgbm_oof),
+        "--place-xgb-oof", str(place_xgb_oof),
+        "--place-cat-oof", str(place_cat_oof),
+        "--win-stack-oof", str(win_stack_oof),
+        "--place-stack-oof", str(place_stack_oof),
+        "--holdout-year", str(int(holdout_year)),
+        "--train-window-years", str(int(train_window_years)),
+    ]
+    if holdout_input:
+        argv_list.extend(["--holdout-input", str(holdout_input)])
+    if win_lgbm_holdout:
+        argv_list.extend(["--win-lgbm-holdout", str(win_lgbm_holdout)])
+    if win_xgb_holdout:
+        argv_list.extend(["--win-xgb-holdout", str(win_xgb_holdout)])
+    if win_cat_holdout:
+        argv_list.extend(["--win-cat-holdout", str(win_cat_holdout)])
+    if place_lgbm_holdout:
+        argv_list.extend(["--place-lgbm-holdout", str(place_lgbm_holdout)])
+    if place_xgb_holdout:
+        argv_list.extend(["--place-xgb-holdout", str(place_xgb_holdout)])
+    if place_cat_holdout:
+        argv_list.extend(["--place-cat-holdout", str(place_cat_holdout)])
+    if win_stack_holdout:
+        argv_list.extend(["--win-stack-holdout", str(win_stack_holdout)])
+    if place_stack_holdout:
+        argv_list.extend(["--place-stack-holdout", str(place_stack_holdout)])
+    if oof_output:
+        argv_list.extend(["--oof-output", str(oof_output)])
+    if wide_oof_output:
+        argv_list.extend(["--wide-oof-output", str(wide_oof_output)])
+    if emit_wide_oof:
+        argv_list.append("--emit-wide-oof")
+    if metrics_output:
+        argv_list.extend(["--metrics-output", str(metrics_output)])
+    if model_output:
+        argv_list.extend(["--model-output", str(model_output)])
+    if all_years_model_output:
+        argv_list.extend(["--all-years-model-output", str(all_years_model_output)])
+    if meta_output:
+        argv_list.extend(["--meta-output", str(meta_output)])
+    if holdout_output:
+        argv_list.extend(["--holdout-output", str(holdout_output)])
+    if year_coverage_output:
+        argv_list.extend(["--year-coverage-output", str(year_coverage_output)])
+    argv_list.extend(["--log-level", str(log_level)])
+
+    args = parse_args(argv_list)
     logging.basicConfig(level=getattr(logging, str(args.log_level).upper(), logging.INFO))
     _validate_args(args)
 
@@ -1638,7 +1723,3 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("wrote %s", outputs["all_years_model"])
     logger.info("wrote %s", outputs["meta"])
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

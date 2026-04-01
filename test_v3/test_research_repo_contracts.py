@@ -45,20 +45,12 @@ from scripts_v3.cv_policy_v3 import (
     build_fixed_window_year_folds,
     select_recent_window_years,
 )
-from scripts_v3.rebuild_v3_db import parse_args as parse_rebuild_args
-from scripts_v3.train_binary_model_v3 import parse_args as parse_binary_args
-from scripts_v3.train_pl_v3 import parse_args as parse_pl_args
 from scripts_v3.train_stacker_v3 import (
     _meta_code_hash_paths,
-)
-from scripts_v3.train_stacker_v3 import (
-    main as train_stack_main,
-)
-from scripts_v3.train_stacker_v3 import (
-    parse_args as parse_stack_args,
+    run_stacker_training,
 )
 from scripts_v3.train_stacker_v3_common import _meta_payload
-from scripts_v3.train_wide_pair_calibrator_v3 import main as train_wide_calibrator_script_main
+from scripts_v3.train_wide_pair_calibrator_v3 import run_wide_calibrator
 from scripts_v3.v3_common import hash_files, resolve_path
 
 
@@ -243,17 +235,17 @@ def test_backtest_wrapper_uses_effective_holdout_year_for_holdout_inputs(
     holdout_input = run["holdout"] / "pl_stack_default_holdout_2025.parquet"
     holdout_input.write_text("placeholder", encoding="utf-8")
 
-    captured: dict[str, list[str]] = {}
+    captured: dict[str, object] = {}
 
-    def fake_backtest_main(argv: list[str]) -> int:
-        captured["argv"] = list(argv)
-        output = Path(argv[argv.index("--output") + 1])
-        meta = Path(argv[argv.index("--meta-output") + 1])
+    def fake_run_backtest_wide(**kwargs: object) -> int:
+        captured.update(kwargs)
+        output = Path(str(kwargs["output"]))
+        meta = Path(str(kwargs["meta_output"]))
         output.write_text("{}", encoding="utf-8")
         meta.write_text(
             json.dumps(
                 {
-                    "input": {"path": argv[argv.index("--input") + 1]},
+                    "input": {"path": str(kwargs["input"])},
                     "report": {"path": str(output)},
                 }
             ),
@@ -261,7 +253,9 @@ def test_backtest_wrapper_uses_effective_holdout_year_for_holdout_inputs(
         )
         return 0
 
-    monkeypatch.setattr("keiba_research.evaluation.commands.backtest_wide_main", fake_backtest_main)
+    monkeypatch.setattr(
+        "keiba_research.evaluation.commands.run_backtest_wide", fake_run_backtest_wide
+    )
 
     rc = handle_backtest(
         type(
@@ -279,8 +273,7 @@ def test_backtest_wrapper_uses_effective_holdout_year_for_holdout_inputs(
         )()
     )
     assert rc == 0
-    argv = captured["argv"]
-    assert argv[argv.index("--holdout-year") + 1] == "2026"
+    assert captured["holdout_year"] == 2026
     meta = json.loads(
         (run["reports"] / "backtest_pl_holdout_meta.json").read_text(encoding="utf-8")
     )
@@ -302,32 +295,31 @@ def test_tune_binary_wrapper_rewrites_study_metadata(
     features_base.write_text("placeholder", encoding="utf-8")
     features_te.write_text("placeholder", encoding="utf-8")
 
-    def fake_tune_binary_main(argv: list[str]) -> int:
-        args = _argv_to_dict(argv)
-        Path(args["--trials-output"]).write_text("trial", encoding="utf-8")
-        Path(args["--best-output"]).write_text(
+    def fake_run_tune_binary(**kwargs: object) -> int:
+        Path(str(kwargs["trials_output"])).write_text("trial", encoding="utf-8")
+        Path(str(kwargs["best_output"])).write_text(
             json.dumps(
                 {
-                    "storage": f"sqlite:///{args['--storage']}",
-                    "best_input": args["--input-te"],
-                    "train_window_years": int(args["--train-window-years"]),
+                    "storage": f"sqlite:///{kwargs['storage']}",
+                    "best_input": str(kwargs["input_te"]),
+                    "train_window_years": int(kwargs["train_window_years"]),  # type: ignore[arg-type]
                 }
             ),
             encoding="utf-8",
         )
-        Path(args["--best-params-output"]).write_text(
+        Path(str(kwargs["best_params_output"])).write_text(
             json.dumps(
                 {
                     "feature_set": "te",
-                    "input": args["--input-te"],
-                    "train_window_years": int(args["--train-window-years"]),
+                    "input": str(kwargs["input_te"]),
+                    "train_window_years": int(kwargs["train_window_years"]),  # type: ignore[arg-type]
                 }
             ),
             encoding="utf-8",
         )
         return 0
 
-    monkeypatch.setattr("keiba_research.tuning.commands.tune_binary_main", fake_tune_binary_main)
+    monkeypatch.setattr("keiba_research.tuning.commands.run_tune_binary", fake_run_tune_binary)
 
     rc = handle_tune_binary(
         type(
@@ -386,46 +378,34 @@ def test_train_binary_wrapper_redirects_feature_manifest_to_run_bundle(
     feature_root = asset_root_env / "data" / "features" / "baseline_v3" / "build_001"
     feature_root.mkdir(parents=True, exist_ok=True)
     (feature_root / "features_v3.parquet").write_text("placeholder", encoding="utf-8")
-    captured: dict[str, list[str]] = {}
+    captured: dict[str, object] = {}
 
-    def fake_train_binary_main(argv: list[str]) -> int:
-        captured["argv"] = list(argv)
-        args: dict[str, str] = {}
-        index = 0
-        while index < len(argv):
-            token = argv[index]
-            if not token.startswith("--"):
-                index += 1
-                continue
-            if index + 1 < len(argv) and not argv[index + 1].startswith("--"):
-                args[token] = argv[index + 1]
-                index += 2
-            else:
-                index += 1
-        Path(args["--metrics-output"]).write_text("{}", encoding="utf-8")
-        Path(args["--model-output"]).write_text("model", encoding="utf-8")
-        Path(args["--all-years-model-output"]).write_text("model", encoding="utf-8")
-        Path(args["--oof-output"]).write_text("oof", encoding="utf-8")
-        Path(args["--holdout-output"]).write_text("holdout", encoding="utf-8")
-        Path(args["--meta-output"]).write_text(
+    def fake_run_binary_training(**kwargs: object) -> int:
+        captured.update(kwargs)
+        Path(str(kwargs["metrics_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["all_years_model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["oof_output"])).write_text("oof", encoding="utf-8")
+        Path(str(kwargs["holdout_output"])).write_text("holdout", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text(
             json.dumps(
                 {
-                    "input_path": args["--input"],
+                    "input_path": str(kwargs["input"]),
                     "output_paths": {
-                        "feature_manifest": args["--feature-manifest-output"],
+                        "feature_manifest": str(kwargs["feature_manifest_output"]),
                     },
                 }
             ),
             encoding="utf-8",
         )
-        Path(args["--feature-manifest-output"]).write_text(
-            json.dumps({"input_path": args["--input"]}),
+        Path(str(kwargs["feature_manifest_output"])).write_text(
+            json.dumps({"input_path": str(kwargs["input"])}),
             encoding="utf-8",
         )
         return 0
 
     monkeypatch.setattr(
-        "keiba_research.training.commands.train_binary_main", fake_train_binary_main
+        "keiba_research.training.commands.run_binary_training", fake_run_binary_training
     )
 
     rc = handle_binary(
@@ -448,9 +428,8 @@ def test_train_binary_wrapper_redirects_feature_manifest_to_run_bundle(
         )()
     )
     assert rc == 0
-    argv = captured["argv"]
-    assert "--feature-manifest-output" in argv
-    manifest_path = Path(argv[argv.index("--feature-manifest-output") + 1])
+    assert "feature_manifest_output" in captured
+    manifest_path = Path(str(captured["feature_manifest_output"]))
     assert manifest_path == run_paths("run_001")["models"] / "win_lgbm_feature_manifest_v3.json"
     meta_path = run_paths("run_001")["models"] / "win_lgbm_bundle_meta_v3.json"
     meta = json.loads(meta_path.read_text())
@@ -469,8 +448,8 @@ def test_db_rebuild_wrapper_rewrites_summary_paths(
     jsonl_file.parent.mkdir(parents=True, exist_ok=True)
     jsonl_file.write_text("{}", encoding="utf-8")
 
-    def fake_rebuild_main(argv: list[str]) -> int:
-        summary_path = Path(argv[argv.index("--summary-output") + 1])
+    def fake_run_rebuild(**kwargs: object) -> int:
+        summary_path = Path(str(kwargs["summary_output"]))
         summary_path.parent.mkdir(parents=True, exist_ok=True)
         summary_path.write_text(
             json.dumps(
@@ -483,7 +462,7 @@ def test_db_rebuild_wrapper_rewrites_summary_paths(
         )
         return 0
 
-    monkeypatch.setattr("keiba_research.db.commands.rebuild_v3_main", fake_rebuild_main)
+    monkeypatch.setattr("keiba_research.db.commands.run_rebuild", fake_run_rebuild)
 
     summary_output = asset_root_env / "cache" / "summary.json"
     rc = handle_rebuild(
@@ -518,8 +497,8 @@ def test_db_rebuild_wrapper_rewrites_symlink_resolved_jsonl_paths(
     linked_jsonl.parent.mkdir(parents=True, exist_ok=True)
     linked_jsonl.symlink_to(external_jsonl)
 
-    def fake_rebuild_main(argv: list[str]) -> int:
-        summary_path = Path(argv[argv.index("--summary-output") + 1])
+    def fake_run_rebuild(**kwargs: object) -> int:
+        summary_path = Path(str(kwargs["summary_output"]))
         summary_path.parent.mkdir(parents=True, exist_ok=True)
         summary_path.write_text(
             json.dumps(
@@ -532,7 +511,7 @@ def test_db_rebuild_wrapper_rewrites_symlink_resolved_jsonl_paths(
         )
         return 0
 
-    monkeypatch.setattr("keiba_research.db.commands.rebuild_v3_main", fake_rebuild_main)
+    monkeypatch.setattr("keiba_research.db.commands.run_rebuild", fake_run_rebuild)
 
     summary_output = asset_root_env / "cache" / "summary_symlink.json"
     rc = handle_rebuild(
@@ -751,22 +730,21 @@ def test_train_pl_wrapper_forwards_train_window_years(
     ):
         (source["holdout"] / name).write_text("placeholder", encoding="utf-8")
 
-    captured: dict[str, list[str]] = {}
+    captured: dict[str, object] = {}
 
-    def fake_train_pl_main(argv: list[str]) -> int:
-        captured["argv"] = list(argv)
-        args = _argv_to_dict(argv)
-        Path(args["--oof-output"]).write_text("oof", encoding="utf-8")
-        Path(args["--wide-oof-output"]).write_text("wide_oof", encoding="utf-8")
-        Path(args["--holdout-output"]).write_text("holdout", encoding="utf-8")
-        Path(args["--metrics-output"]).write_text("{}", encoding="utf-8")
-        Path(args["--model-output"]).write_text("model", encoding="utf-8")
-        Path(args["--all-years-model-output"]).write_text("model", encoding="utf-8")
-        Path(args["--year-coverage-output"]).write_text("{}", encoding="utf-8")
-        Path(args["--meta-output"]).write_text("{}", encoding="utf-8")
+    def fake_run_pl_training(**kwargs: object) -> int:
+        captured.update(kwargs)
+        Path(str(kwargs["oof_output"])).write_text("oof", encoding="utf-8")
+        Path(str(kwargs["wide_oof_output"])).write_text("wide_oof", encoding="utf-8")
+        Path(str(kwargs["holdout_output"])).write_text("holdout", encoding="utf-8")
+        Path(str(kwargs["metrics_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["all_years_model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["year_coverage_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text("{}", encoding="utf-8")
         return 0
 
-    monkeypatch.setattr("keiba_research.training.commands.train_pl_main", fake_train_pl_main)
+    monkeypatch.setattr("keiba_research.training.commands.run_pl_training", fake_run_pl_training)
 
     rc = handle_pl(
         type(
@@ -786,8 +764,7 @@ def test_train_pl_wrapper_forwards_train_window_years(
         )()
     )
     assert rc == 0
-    argv = captured["argv"]
-    assert argv[argv.index("--train-window-years") + 1] == "3"
+    assert captured["train_window_years"] == 3
 
 
 def test_wide_calibrator_wrapper_prefers_wide_oof_and_sets_apply_input(
@@ -811,19 +788,18 @@ def test_wide_calibrator_wrapper_prefers_wide_oof_and_sets_apply_input(
     fallback_input.write_text("horse_oof", encoding="utf-8")
     apply_input.write_text("holdout", encoding="utf-8")
 
-    captured: dict[str, list[str]] = {}
+    captured: dict[str, object] = {}
 
-    def fake_train_wide_main(argv: list[str]) -> int:
-        captured["argv"] = list(argv)
-        args = _argv_to_dict(argv)
-        Path(args["--model-output"]).write_text("model", encoding="utf-8")
-        Path(args["--pred-output"]).write_text("pred", encoding="utf-8")
-        Path(args["--metrics-output"]).write_text("{}", encoding="utf-8")
-        Path(args["--meta-output"]).write_text("{}", encoding="utf-8")
+    def fake_run_wide_calibrator(**kwargs: object) -> int:
+        captured.update(kwargs)
+        Path(str(kwargs["model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["pred_output"])).write_text("pred", encoding="utf-8")
+        Path(str(kwargs["metrics_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text("{}", encoding="utf-8")
         return 0
 
     monkeypatch.setattr(
-        "keiba_research.training.commands.train_wide_calibrator_main", fake_train_wide_main
+        "keiba_research.training.commands.run_wide_calibrator", fake_run_wide_calibrator
     )
 
     rc = handle_wide_calibrator(
@@ -842,9 +818,8 @@ def test_wide_calibrator_wrapper_prefers_wide_oof_and_sets_apply_input(
         )()
     )
     assert rc == 0
-    argv = captured["argv"]
-    assert argv[argv.index("--fit-input") + 1] == str(fit_input)
-    assert argv[argv.index("--apply-input") + 1] == str(apply_input)
+    assert captured["fit_input"] == str(fit_input)
+    assert captured["apply_input"] == str(apply_input)
     config = tomllib.loads(run_paths("wide_run")["config"].read_text(encoding="utf-8"))
     assert config["feature_profile"] == "baseline_v3"
     assert config["feature_build_id"] == "build_001"
@@ -869,19 +844,18 @@ def test_wide_calibrator_wrapper_falls_back_to_horse_oof(
     fit_input.write_text("horse_oof", encoding="utf-8")
     apply_input.write_text("holdout", encoding="utf-8")
 
-    captured: dict[str, list[str]] = {}
+    captured: dict[str, object] = {}
 
-    def fake_train_wide_main(argv: list[str]) -> int:
-        captured["argv"] = list(argv)
-        args = _argv_to_dict(argv)
-        Path(args["--model-output"]).write_text("model", encoding="utf-8")
-        Path(args["--pred-output"]).write_text("pred", encoding="utf-8")
-        Path(args["--metrics-output"]).write_text("{}", encoding="utf-8")
-        Path(args["--meta-output"]).write_text("{}", encoding="utf-8")
+    def fake_run_wide_calibrator(**kwargs: object) -> int:
+        captured.update(kwargs)
+        Path(str(kwargs["model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["pred_output"])).write_text("pred", encoding="utf-8")
+        Path(str(kwargs["metrics_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text("{}", encoding="utf-8")
         return 0
 
     monkeypatch.setattr(
-        "keiba_research.training.commands.train_wide_calibrator_main", fake_train_wide_main
+        "keiba_research.training.commands.run_wide_calibrator", fake_run_wide_calibrator
     )
 
     rc = handle_wide_calibrator(
@@ -900,9 +874,8 @@ def test_wide_calibrator_wrapper_falls_back_to_horse_oof(
         )()
     )
     assert rc == 0
-    argv = captured["argv"]
-    assert argv[argv.index("--fit-input") + 1] == str(fit_input)
-    assert argv[argv.index("--apply-input") + 1] == str(apply_input)
+    assert captured["fit_input"] == str(fit_input)
+    assert captured["apply_input"] == str(apply_input)
 
 
 def test_wide_calibrator_cross_run_config_supports_backtest(
@@ -925,16 +898,15 @@ def test_wide_calibrator_cross_run_config_supports_backtest(
         encoding="utf-8",
     )
 
-    def fake_train_wide_main(argv: list[str]) -> int:
-        args = _argv_to_dict(argv)
-        Path(args["--model-output"]).write_text("model", encoding="utf-8")
-        Path(args["--pred-output"]).write_text("pred", encoding="utf-8")
-        Path(args["--metrics-output"]).write_text("{}", encoding="utf-8")
-        Path(args["--meta-output"]).write_text("{}", encoding="utf-8")
+    def fake_run_wide_calibrator(**kwargs: object) -> int:
+        Path(str(kwargs["model_output"])).write_text("model", encoding="utf-8")
+        Path(str(kwargs["pred_output"])).write_text("pred", encoding="utf-8")
+        Path(str(kwargs["metrics_output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text("{}", encoding="utf-8")
         return 0
 
     monkeypatch.setattr(
-        "keiba_research.training.commands.train_wide_calibrator_main", fake_train_wide_main
+        "keiba_research.training.commands.run_wide_calibrator", fake_run_wide_calibrator
     )
 
     rc = handle_wide_calibrator(
@@ -954,19 +926,22 @@ def test_wide_calibrator_cross_run_config_supports_backtest(
     )
     assert rc == 0
 
-    captured: dict[str, list[str]] = {}
+    captured: dict[str, object] = {}
 
-    def fake_backtest_main(argv: list[str]) -> int:
-        captured["argv"] = list(argv)
-        args = _argv_to_dict(argv)
-        Path(args["--output"]).write_text("{}", encoding="utf-8")
-        Path(args["--meta-output"]).write_text(
-            json.dumps({"input": {"path": args["--input"]}, "report": {"path": args["--output"]}}),
+    def fake_run_backtest_wide(**kwargs: object) -> int:
+        captured.update(kwargs)
+        Path(str(kwargs["output"])).write_text("{}", encoding="utf-8")
+        Path(str(kwargs["meta_output"])).write_text(
+            json.dumps(
+                {"input": {"path": str(kwargs["input"])}, "report": {"path": str(kwargs["output"])}}
+            ),
             encoding="utf-8",
         )
         return 0
 
-    monkeypatch.setattr("keiba_research.evaluation.commands.backtest_wide_main", fake_backtest_main)
+    monkeypatch.setattr(
+        "keiba_research.evaluation.commands.run_backtest_wide", fake_run_backtest_wide
+    )
 
     rc = handle_backtest(
         type(
@@ -984,16 +959,12 @@ def test_wide_calibrator_cross_run_config_supports_backtest(
         )()
     )
     assert rc == 0
-    argv = captured["argv"]
-    assert argv[argv.index("--holdout-year") + 1] == "2026"
+    assert captured["holdout_year"] == 2026
     expected_input = (
         run_paths("wide_run_backtest")["predictions"]
         / "wide_pair_calibration_isotonic_pred.parquet"
     )
-    assert (
-        argv[argv.index("--input") + 1]
-        == str(expected_input)
-    )
+    assert captured["input"] == str(expected_input)
 
 
 def test_three_year_contract_year_coverage_example() -> None:
@@ -1115,29 +1086,17 @@ def test_wide_calibrator_report_separates_fit_and_holdout_eval(
     pred_output = asset_root_env / "pred.parquet"
     metrics_output = asset_root_env / "metrics.json"
 
-    rc = train_wide_calibrator_script_main(
-        [
-            "--fit-input",
-            str(fit_input),
-            "--apply-input",
-            str(apply_input),
-            "--method",
-            "isotonic",
-            "--model-output",
-            str(model_output),
-            "--meta-output",
-            str(meta_output),
-            "--pred-output",
-            str(pred_output),
-            "--metrics-output",
-            str(metrics_output),
-            "--database-url",
-            "postgresql://example/test",
-            "--years",
-            "2024",
-            "--require-years",
-            "2024",
-        ]
+    rc = run_wide_calibrator(
+        fit_input=str(fit_input),
+        apply_input=str(apply_input),
+        method="isotonic",
+        model_output=str(model_output),
+        meta_output=str(meta_output),
+        pred_output=str(pred_output),
+        metrics_output=str(metrics_output),
+        database_url="postgresql://example/test",
+        years="2024",
+        require_years="2024",
     )
     assert rc == 0
     metrics = json.loads(metrics_output.read_text(encoding="utf-8"))
@@ -1167,26 +1126,37 @@ def test_python_module_help_smoke() -> None:
 
 
 def test_rebuild_cli_accepts_pinned_o1_date() -> None:
-    args = parse_rebuild_args(["--o1-date", "20260215"])
+    args = build_parser().parse_args(["db", "rebuild", "--o1-date", "20260215"])
     assert args.o1_date == "20260215"
 
 
-def test_training_scripts_accept_disable_default_params_json_flag() -> None:
-    binary_args = parse_binary_args(["--disable-default-params-json"])
-    stack_args = parse_stack_args(["--disable-default-params-json"])
-    pl_args = parse_pl_args([])
-    assert binary_args.disable_default_params_json is True
-    assert stack_args.disable_default_params_json is True
+def test_training_cli_defaults() -> None:
+    parser = build_parser()
+    binary_args = parser.parse_args(
+        ["train", "binary", "--run-id", "r", "--feature-profile", "fp", "--feature-build-id", "fb"]
+    )
+    stack_args = parser.parse_args(
+        ["train", "stack", "--run-id", "r", "--feature-profile", "fp", "--feature-build-id", "fb"]
+    )
+    pl_args = parser.parse_args(
+        ["train", "pl", "--run-id", "r", "--feature-profile", "fp", "--feature-build-id", "fb"]
+    )
     assert binary_args.train_window_years == 3
     assert stack_args.min_train_years == 2
     assert stack_args.max_train_years == 3
     assert pl_args.train_window_years == 3
-    binary_manifest_args = parse_binary_args(["--feature-manifest-output", "models/test.json"])
-    assert binary_manifest_args.feature_manifest_output == "models/test.json"
 
 
 def test_stacker_meta_code_hash_includes_entrypoint() -> None:
-    args = parse_stack_args([])
+    import argparse
+
+    args = argparse.Namespace(
+        task="win",
+        min_train_years=2,
+        max_train_years=3,
+        holdout_year=2025,
+        artifact_suffix="",
+    )
     code_hash_paths = _meta_code_hash_paths()
     payload = _meta_payload(
         args=args,
@@ -1242,19 +1212,12 @@ def test_stacker_main_preserves_cli_flags_over_params_json(
         raise StopAfterValidate
 
     monkeypatch.setattr("scripts_v3.train_stacker_v3._validate_args", fake_validate)
-    monkeypatch.setattr(
-        "sys.argv",
-        [
-            "train_stacker_v3.py",
-            "--params-json",
-            str(params_path),
-            "--min-train-years",
-            "9",
-        ],
-    )
 
     with pytest.raises(StopAfterValidate):
-        train_stack_main()
+        run_stacker_training(
+            params_json=str(params_path),
+            min_train_years=9,
+        )
 
     assert captured["min_train_years"] == 9
     assert captured["max_train_years"] == 8
