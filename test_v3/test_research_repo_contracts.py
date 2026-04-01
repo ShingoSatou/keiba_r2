@@ -40,9 +40,6 @@ from keiba_research.tuning.commands import (
 from keiba_research.tuning.commands import (
     handle_binary as handle_tune_binary,
 )
-from keiba_research.tuning.commands import (
-    handle_stack as handle_tune_stack,
-)
 from scripts_v3.cv_policy_v3 import (
     build_capped_expanding_year_folds,
     build_fixed_window_year_folds,
@@ -51,7 +48,7 @@ from scripts_v3.cv_policy_v3 import (
 from scripts_v3.rebuild_v3_db import parse_args as parse_rebuild_args
 from scripts_v3.train_binary_model_v3 import parse_args as parse_binary_args
 from scripts_v3.train_pl_v3 import parse_args as parse_pl_args
-from scripts_v3.train_stacker_v3_common import parse_args as parse_stack_args
+from scripts_v3.train_stacker_v3 import parse_args as parse_stack_args
 from scripts_v3.train_wide_pair_calibrator_v3 import main as train_wide_calibrator_script_main
 
 

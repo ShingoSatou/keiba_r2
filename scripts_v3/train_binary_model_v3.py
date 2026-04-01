@@ -17,6 +17,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts_v3.cv_policy_v3 import (  # noqa: E402
+    DEFAULT_CV_WINDOW_POLICY,
+    DEFAULT_TRAIN_WINDOW_YEARS,
+    build_cv_policy_payload,
+    build_fixed_window_year_folds,
+    make_window_definition,
+    select_recent_window_years,
+)
 from scripts_v3.feature_registry_v3 import (  # noqa: E402
     BINARY_ENTITY_ID_FEATURES,
     FEATURE_MANIFEST_VERSION,
@@ -32,21 +40,17 @@ from scripts_v3.metrics_benter_v3_common import (  # noqa: E402
     race_softmax,
 )
 from scripts_v3.train_binary_v3_common import (  # noqa: E402
-    DEFAULT_CV_WINDOW_POLICY,
-    DEFAULT_TRAIN_WINDOW_YEARS,
     binary_output_paths,
-    build_cv_policy_payload,
-    build_fixed_window_year_folds,
     build_oof_frame,
     coerce_feature_matrix,
     compute_binary_metrics,
     fold_integrity,
-    hash_files,
-    make_window_definition,
     prepare_binary_frame,
+)
+from scripts_v3.v3_common import (  # noqa: E402
+    hash_files,
     resolve_path,
     save_json,
-    select_recent_window_years,
 )
 
 logger = logging.getLogger(__name__)

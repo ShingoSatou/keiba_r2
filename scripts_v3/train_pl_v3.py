@@ -16,6 +16,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts_v3.cv_policy_v3 import (  # noqa: E402
+    DEFAULT_CV_WINDOW_POLICY,
+    attach_cv_policy_columns,
+    build_cv_policy_payload,
+    build_fixed_window_year_folds,
+    make_window_definition,
+    select_recent_window_years,
+)
 from scripts_v3.feature_registry_v3 import (  # noqa: E402
     PL_FEATURE_PROFILE_CHOICES,
     STACK_LIKE_PL_FEATURE_PROFILES,
@@ -34,20 +42,16 @@ from scripts_v3.pl_v3_common import (  # noqa: E402
     predict_linear_scores,
 )
 from scripts_v3.train_binary_v3_common import (  # noqa: E402
-    DEFAULT_CV_WINDOW_POLICY,
-    attach_cv_policy_columns,
-    build_cv_policy_payload,
-    build_fixed_window_year_folds,
     compute_binary_metrics,
     fold_integrity,
-    hash_files,
-    make_window_definition,
-    resolve_path,
-    save_json,
-    select_recent_window_years,
 )
 from scripts_v3.train_pl_v3_common import pl_output_paths  # noqa: E402
-from scripts_v3.v3_common import append_stem_suffix  # noqa: E402
+from scripts_v3.v3_common import (  # noqa: E402
+    append_stem_suffix,  # noqa: E402
+    hash_files,
+    resolve_path,
+    save_json,
+)
 
 logger = logging.getLogger(__name__)
 
