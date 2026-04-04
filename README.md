@@ -41,15 +41,17 @@ repo 全体の目的、対象レース、比較単位は `docs/specs/project-pur
 ## Quick start
 ```bash
 uv sync
-export V3_ASSET_ROOT=/path/to/v3_assets
+export V3_ASSET_ROOT=/home/sato/projects/REPO-v3-research/.local/v3_assets
 export V3_DATABASE_URL=postgresql://...
 uv run python -m keiba_research --help
 ```
 
 この workspace で現在使っている `V3_ASSET_ROOT` は
 [`docs/history/active-asset-root.md`](docs/history/active-asset-root.md)
-に公開用テンプレートを置いています。実際の absolute path は repo には commit せず、
-ローカル環境変数や private note で管理します。
+に固定しています。current workspace の保存先は
+`/home/sato/projects/REPO-v3-research/.local/v3_assets` です。
+`V3_ASSET_ROOT` を明示しない場合も、repo-level code は同じ path を default として使います。
+この directory は Git 管理しません。
 
 必要な JSONL は `$V3_ASSET_ROOT/data/jsonl/` 配下に置きます。
 
@@ -74,5 +76,6 @@ uv run python -m keiba_research eval compare --left-run-id baseline_run --right-
 - feature contract: `docs/specs/feature-contract.md`
 - training / tuning: `docs/specs/training-and-tuning.md`
 - evaluation / comparison: `docs/specs/evaluation-and-comparison.md`
+- execution report: `docs/specs/execution-report.md`
 - operations: `docs/specs/operations.md`
 - history: `docs/history/README.md`

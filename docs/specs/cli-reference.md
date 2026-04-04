@@ -8,6 +8,10 @@
 uv run python -m keiba_research <group> <command> [options]
 ```
 
+current workspace default:
+- `V3_ASSET_ROOT` 未設定時は `/home/sato/projects/REPO-v3-research/.local/v3_assets` を使います
+- 明示 override したいときだけ `V3_ASSET_ROOT` を設定します
+
 group:
 - `db`
 - `features`
@@ -315,6 +319,28 @@ default:
 
 出力:
 - default: `cache/compare/<left>__vs__<right>.json`
+
+### `eval report`
+用途:
+- 既存 run bundle から execution report summary/detail を生成する
+
+必須引数:
+- `--run-id`
+
+主な引数:
+- optional `--summary-output`
+- optional `--detail-output`
+- optional `--annotation`
+
+出力:
+- default: `runs/<run_id>/execution_report_summary.json`
+- default: `runs/<run_id>/execution_report_detail.json`
+
+注意:
+- v1 では `1 report = 1 run`
+- source of truth は引き続き run bundle です
+- title / description / status / code revision override は `execution_report_annotation.toml` から読めます
+- compare surface は変わりません
 
 ## `import`
 ### `import legacy-tuning`

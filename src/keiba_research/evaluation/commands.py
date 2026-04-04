@@ -15,6 +15,7 @@ from keiba_research.common.assets import (
 )
 from keiba_research.common.state import update_run_bundle, update_run_metrics
 from keiba_research.evaluation.backtest_wide import run_backtest_wide
+from keiba_research.evaluation.execution_report import write_execution_report
 
 
 def register(parser: argparse.ArgumentParser) -> None:
@@ -37,6 +38,16 @@ def register(parser: argparse.ArgumentParser) -> None:
     compare.add_argument("--right-run-id", required=True)
     compare.add_argument("--output", default="")
     compare.set_defaults(handler=handle_compare)
+
+    report = subparsers.add_parser(
+        "report",
+        help="Generate execution report summary/detail from an existing run bundle.",
+    )
+    report.add_argument("--run-id", required=True)
+    report.add_argument("--summary-output", default="")
+    report.add_argument("--detail-output", default="")
+    report.add_argument("--annotation", default="")
+    report.set_defaults(handler=handle_report)
 
 
 def _load_run_config(run_id: str) -> dict[str, object]:
@@ -165,4 +176,14 @@ def handle_compare(args: argparse.Namespace) -> int:
         "right_sections": sorted((right_metrics.get("sections") or {}).keys()),
     }
     write_json(output_path, payload)
+    return 0
+
+
+def handle_report(args: argparse.Namespace) -> int:
+    write_execution_report(
+        str(args.run_id),
+        summary_output=str(args.summary_output).strip() or None,
+        detail_output=str(args.detail_output).strip() or None,
+        annotation_path=str(args.annotation).strip() or None,
+    )
     return 0

@@ -41,3 +41,10 @@
   - `PR` は code/docs/CI など repo-tracked な差分があるときだけ作る
   - `run` / `study` / `feature_profile` の source of truth は引き続き repo 外の asset/report 契約に置く
   - current private repo では GitHub plan 制約で branch protection / ruleset を強制できないため、使える環境になるまでは PR-only, squash-only, CI 必須を運用規律として先に入れる
+- execution report v1 は `run` 派生 read model として扱う
+  - v1 では `1 report = 1 run` に固定し、source of truth は `run` のまま維持する
+  - compare は従来どおり `metrics.json` を読み、execution report は UI/read layer 用の curated surface に留める
+- current workspace の asset root は repo 内 `.local/v3_assets` に固定する
+  - current path は `/home/sato/projects/REPO-v3-research/.local/v3_assets`
+  - `V3_ASSET_ROOT` 未設定時も同じ path を default として使う
+  - `.local/v3_assets` 自体は Git 管理しない

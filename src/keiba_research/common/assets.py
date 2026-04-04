@@ -8,6 +8,8 @@ from typing import Any
 
 ASSET_ENV = "V3_ASSET_ROOT"
 VALID_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_ASSET_ROOT = PROJECT_ROOT / ".local" / "v3_assets"
 
 
 def _require_id(value: str, *, label: str) -> str:
@@ -23,9 +25,7 @@ def _require_id(value: str, *, label: str) -> str:
 
 def asset_root() -> Path:
     raw = os.getenv(ASSET_ENV, "").strip()
-    if not raw:
-        raise SystemExit(f"{ASSET_ENV} is required")
-    root = Path(raw).expanduser().resolve()
+    root = Path(raw).expanduser().resolve() if raw else DEFAULT_ASSET_ROOT.resolve()
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -109,6 +109,10 @@ def run_paths(run_id: str) -> dict[str, Path]:
         "config": root / "config.toml",
         "bundle": root / "bundle.json",
         "metrics": root / "metrics.json",
+        "resolved_params": root / "resolved_params.toml",
+        "execution_report_summary": root / "execution_report_summary.json",
+        "execution_report_detail": root / "execution_report_detail.json",
+        "execution_report_annotation": root / "execution_report_annotation.toml",
         "artifacts": artifacts,
         "models": models,
         "oof": oof,
