@@ -1,0 +1,340 @@
+{
+  "schema_version": 1,
+  "report_id": "report_full",
+  "run_id": "report_full",
+  "created_at": "2026-04-05T09:30:00Z",
+  "status": "complete",
+  "title": "Annotated full report",
+  "description": "full execution report",
+  "code_revision": {
+    "git_commit": "abc1234"
+  },
+  "conditions": {
+    "feature_profile": "baseline_v3",
+    "feature_build_id": "build_001",
+    "holdout_year": 2025,
+    "pl_feature_profile": "stack_default",
+    "source_run_ids": [
+      "upstream_run"
+    ],
+    "primary_source_run_id": "upstream_run",
+    "source_report_ids": [
+      "upstream_run"
+    ],
+    "primary_source_report_id": "upstream_run",
+    "target_segment": null,
+    "from_date": "2016-01-01",
+    "to_date": "2025-12-31",
+    "history_days": 730
+  },
+  "pipeline": {
+    "binary": {
+      "win": {
+        "lgbm": true,
+        "xgb": false,
+        "cat": false
+      },
+      "place": {
+        "lgbm": false,
+        "xgb": false,
+        "cat": false
+      }
+    },
+    "stack": {
+      "win": true,
+      "place": false
+    },
+    "pl": {
+      "enabled": true,
+      "profiles": {
+        "stack_default": true
+      }
+    },
+    "wide_calibrator": {
+      "enabled": true,
+      "methods": {
+        "isotonic": {
+          "enabled": true,
+          "method": "isotonic"
+        }
+      }
+    },
+    "backtest": {
+      "pl_holdout": true,
+      "pl_oof": false,
+      "wide_calibrated": false
+    }
+  },
+  "quality_summary": {
+    "binary": {
+      "win.lgbm": {
+        "logloss": 0.41,
+        "brier": 0.14,
+        "auc": 0.77,
+        "ece": 0.03,
+        "benter_r2_valid": 0.12
+      }
+    }
+  },
+  "coverage_summary": {
+    "binary": {
+      "win.lgbm": {
+        "rows": 1200,
+        "races": 120,
+        "years": [
+          2022,
+          2023,
+          2024
+        ],
+        "oof_valid_years": [
+          2022,
+          2023,
+          2024
+        ],
+        "holdout_years": [
+          2025,
+          2026
+        ],
+        "holdout_year": 2025
+      }
+    }
+  },
+  "backtest_summary": {
+    "pl_holdout": {
+      "period_from": "2025-01-01",
+      "period_to": "2025-12-31",
+      "n_races": 20,
+      "n_bets": 30,
+      "n_hits": 10,
+      "hit_rate": 0.3333,
+      "total_bet": 3000,
+      "total_return": 4200,
+      "roi": 1.4,
+      "max_drawdown": -500,
+      "logloss": 0.56,
+      "auc": 0.71
+    }
+  },
+  "paths": {
+    "run_root": "runs/report_full",
+    "config": "runs/report_full/config.toml",
+    "bundle": "runs/report_full/bundle.json",
+    "metrics": "runs/report_full/metrics.json",
+    "resolved_params": "runs/report_full/resolved_params.toml",
+    "summary": "runs/report_full/execution_report_summary.json",
+    "detail": "runs/report_full/execution_report_detail.json",
+    "annotation": "runs/report_full/execution_report_annotation.toml",
+    "feature_build_config": "data/features/baseline_v3/build_001/config.toml"
+  },
+  "source_of_truth": {
+    "run": {
+      "config": "runs/report_full/config.toml",
+      "bundle": "runs/report_full/bundle.json",
+      "metrics": "runs/report_full/metrics.json",
+      "resolved_params": "runs/report_full/resolved_params.toml",
+      "annotation": "runs/report_full/execution_report_annotation.toml"
+    },
+    "feature_build": {
+      "config": "data/features/baseline_v3/build_001/config.toml"
+    },
+    "sections": {
+      "binary.win.lgbm": {
+        "bundle_metrics_path": "runs/report_full/artifacts/reports/win_lgbm_cv_metrics.json",
+        "report_path": "runs/report_full/artifacts/reports/win_lgbm_cv_metrics.json",
+        "meta_path": "runs/report_full/artifacts/models/win_lgbm_bundle_meta_v3.json"
+      }
+    }
+  },
+  "lineage": {
+    "source_run_ids": [
+      "upstream_run"
+    ],
+    "source_report_ids": [
+      "upstream_run"
+    ],
+    "primary_source_run_id": "upstream_run",
+    "primary_source_report_id": "upstream_run",
+    "section_source_runs": {
+      "stack.win": "upstream_run",
+      "pl.stack_default": "upstream_run",
+      "wide_calibrator.isotonic": "upstream_run"
+    }
+  },
+  "layer_settings": {
+    "binary.win.lgbm": {
+      "bundle": {
+        "feature_set": "te",
+        "study_id": "study_001"
+      },
+      "resolved_params": {
+        "feature_set": "te",
+        "holdout_year": 2025,
+        "train_window_years": 3,
+        "num_leaves": 63,
+        "final_num_boost_round": 123
+      },
+      "report_config": {
+        "holdout_year": 2025,
+        "train_window_years": 3,
+        "operational_mode": "t10_only",
+        "include_entity_id_features": false,
+        "params_json": "studies/study_001/selected_trial.json"
+      }
+    }
+  },
+  "setting_sources": {
+    "binary.win.lgbm": {
+      "feature_set": "study_selected",
+      "holdout_year": "default",
+      "train_window_years": "study_selected",
+      "num_leaves": "study_selected",
+      "final_num_boost_round": "study_selected",
+      "operational_mode": "default",
+      "include_entity_id_features": "default",
+      "params_json": "unknown",
+      "study_id": "study_selected"
+    }
+  },
+  "quality_detail": {
+    "sections": {
+      "pl.stack_default": {
+        "kind": "pl",
+        "parts": {
+          "profile": "stack_default"
+        },
+        "path": "runs/report_full/artifacts/reports/pl_stack_default_cv_metrics.json",
+        "curated": {
+          "pl_nll_valid": 1.11,
+          "top3_logloss": 0.58,
+          "top3_brier": 0.18,
+          "top3_auc": 0.72,
+          "top3_ece": 0.04
+        }
+      }
+    }
+  },
+  "coverage_detail": {
+    "sections": {
+      "pl.stack_default": {
+        "kind": "pl",
+        "parts": {
+          "profile": "stack_default"
+        },
+        "path": "runs/report_full/artifacts/reports/pl_stack_default_cv_metrics.json",
+        "curated": {
+          "rows": 600,
+          "races": 60,
+          "years": [
+            2024
+          ],
+          "oof_valid_years": [
+            2024
+          ],
+          "holdout_years": [
+            2025
+          ],
+          "pl_oof_valid_years": [
+            2024
+          ],
+          "pl_holdout_train_years": [
+            2022,
+            2023,
+            2024
+          ],
+          "base_oof_years": [
+            2022,
+            2023,
+            2024
+          ],
+          "stacker_oof_years": [
+            2023,
+            2024
+          ]
+        }
+      }
+    }
+  },
+  "roi_detail": {
+    "backtests": {
+      "pl_holdout": {
+        "report_path": "runs/report_full/artifacts/reports/backtest_pl_holdout.json",
+        "meta_path": "runs/report_full/artifacts/reports/backtest_pl_holdout_meta.json",
+        "summary": {
+          "period_from": "2025-01-01",
+          "period_to": "2025-12-31",
+          "n_races": 20,
+          "n_bets": 30,
+          "n_hits": 10,
+          "hit_rate": 0.3333,
+          "total_bet": 3000,
+          "total_return": 4200,
+          "roi": 1.4,
+          "max_drawdown": -500,
+          "logloss": 0.56,
+          "auc": 0.71
+        },
+        "purchase_rule": {
+          "input_kind": "horse",
+          "p_wide_source": "v3_pl_score_mc",
+          "min_p_wide": 0.0,
+          "min_p_wide_stage": "candidate",
+          "ev_threshold": 0.0,
+          "max_bets_per_race": 5,
+          "kelly_fraction": 0.25,
+          "race_cap_fraction": 0.05,
+          "daily_cap_fraction": 0.2,
+          "bankroll_init_yen": 1000000,
+          "bet_unit_yen": 100,
+          "min_bet_yen": 100
+        }
+      }
+    }
+  },
+  "diagnostics": {
+    "layer_health": {
+      "pl.stack_default": {
+        "kind": "pl",
+        "primary_metric": "pl_nll_valid",
+        "primary_value": 1.11
+      }
+    },
+    "pl_top3_segments": {
+      "stack_default": {
+        "all": {
+          "rows": 200,
+          "logloss": 0.57
+        },
+        "3yo": {
+          "rows": 80,
+          "logloss": 0.61
+        },
+        "4up": {
+          "rows": 120,
+          "logloss": 0.54
+        }
+      }
+    }
+  },
+  "artifacts": {
+    "bundle_sections": {
+      "binary.win.lgbm": {
+        "feature_set": "te",
+        "study_id": "study_001",
+        "input": "data/features/baseline_v3/build_001/features_v3.parquet",
+        "oof": "runs/report_full/artifacts/oof/win_lgbm_oof.parquet",
+        "holdout": "runs/report_full/artifacts/holdout/win_lgbm_holdout_2025.parquet",
+        "metrics": "runs/report_full/artifacts/reports/win_lgbm_cv_metrics.json",
+        "model": "runs/report_full/artifacts/models/win_lgbm_v3.txt",
+        "meta": "runs/report_full/artifacts/models/win_lgbm_bundle_meta_v3.json"
+      }
+    }
+  },
+  "code_fingerprint": {
+    "git_commit": "abc1234",
+    "layer_code_hashes": {
+      "binary.win.lgbm": "binary-hash",
+      "pl.stack_default": "pl-hash"
+    }
+  },
+  "issues": []
+}

@@ -36,7 +36,8 @@
 10. `binary-stacker-and-calibration.md`
 11. `pl-inference-and-wide-backtest.md`
 12. `evaluation-and-comparison.md`
-13. `cli-reference.md`
+13. `execution-report.md`
+14. `cli-reference.md`
 
 ## Lifecycle
 ```text
@@ -60,6 +61,7 @@ canonical JSONL
 | `leakage guard`, `as-of`, `TE`, odds snapshots | `glossary.md`, `feature-contract.md`, `feature-and-odds.md` |
 | `selected_trial`, `read_only_seed` | `glossary.md`, `data-contract.md`, `training-and-tuning.md` |
 | `wide_calibrated`, purchase rule, compare limitations | `glossary.md`, `pl-inference-and-wide-backtest.md`, `evaluation-and-comparison.md` |
+| `execution report`, `report_id`, report annotation | `glossary.md`, `execution-report.md`, `data-contract.md` |
 
 ## Public entrypoint
 repo-level CLI:
@@ -103,3 +105,5 @@ uv run python -m keiba_research <group> <command> ...
   - `binary-stacker-and-calibration.md`
 - PL / `p_top3` / `p_wide` / 購入ルールを追いたい
   - `pl-inference-and-wide-backtest.md`
+- 実行レポートの schema / source of truth / sample を見たい
+  - `execution-report.md`

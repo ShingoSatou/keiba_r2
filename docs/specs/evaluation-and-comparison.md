@@ -2,6 +2,7 @@
 
 ## Scope
 - official compare は `run` 同士の `metrics + backtest` 比較です。
+- execution report は `run` から派生生成する read model です。
 - selection-test suite は持ち込みません。
 - production 用の single-race API は持ちません。
 - 必要なら inspection 用の軽量 scoring surface を後から追加しますが、現状の中心は batch evaluation です。
@@ -86,6 +87,43 @@ compare 出力の主な field:
 
 compare は `metrics.json` の数値だけを見ます。  
 backtest を比較に含めたいなら、先に各 run で `eval backtest` を実行して metrics に書き込んでおく必要があります。
+
+## Execution report
+`eval report` は 1 run から `execution_report_summary.json` と `execution_report_detail.json` を生成します。
+
+前提:
+- source of truth は `run` のままです
+- execution report は `bundle.json`, `metrics.json`, `resolved_params.toml`, run config, feature build config, artifact report を読む派生物です
+- v1 では `1 report = 1 run` です
+
+出力:
+- `runs/<run_id>/execution_report_summary.json`
+- `runs/<run_id>/execution_report_detail.json`
+- optional `runs/<run_id>/execution_report_annotation.toml`
+
+注意:
+- compare は引き続き `metrics.json` だけを読みます
+- execution report の追加で `eval compare` の入出力は変わりません
+- detail は raw artifact 全文を複製する場所ではなく、artifact path と curated field を持つ read model です
+
+## Local viewer
+`eval report-view` は execution report からローカル UI を起動します。
+
+使い方:
+- 単票
+  - `uv run python -m keiba_research eval report-view --run-id <run_id>`
+- compare
+  - `uv run python -m keiba_research eval report-view --run-id <left_run_id> --run-id <right_run_id>`
+
+役割:
+- execution report JSON を operator-facing に読むための local read-only viewer
+- compare と違い、curated field をまとめて見せる
+- compare mode では summary/coverage/backtest を 2 run 並べて読む
+
+制約:
+- viewer は execution report JSON を読む read model です
+- compare の canonical delta は依然として `eval compare` です
+- production frontend / API は前提にしません
 
 ## Rules
 - 比較対象は常に `run_id` で明示します。

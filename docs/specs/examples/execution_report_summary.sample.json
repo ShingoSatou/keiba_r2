@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "report_id": "report_full",
+  "run_id": "report_full",
+  "created_at": "2026-04-05T09:30:00Z",
+  "status": "complete",
+  "title": "Annotated full report",
+  "description": "full execution report",
+  "code_revision": {
+    "git_commit": "abc1234"
+  },
+  "conditions": {
+    "feature_profile": "baseline_v3",
+    "feature_build_id": "build_001",
+    "holdout_year": 2025,
+    "pl_feature_profile": "stack_default",
+    "source_run_ids": [
+      "upstream_run"
+    ],
+    "primary_source_run_id": "upstream_run",
+    "source_report_ids": [
+      "upstream_run"
+    ],
+    "primary_source_report_id": "upstream_run",
+    "target_segment": null,
+    "from_date": "2016-01-01",
+    "to_date": "2025-12-31",
+    "history_days": 730
+  },
+  "pipeline": {
+    "binary": {
+      "win": {
+        "lgbm": true,
+        "xgb": false,
+        "cat": false
+      },
+      "place": {
+        "lgbm": false,
+        "xgb": false,
+        "cat": false
+      }
+    },
+    "stack": {
+      "win": true,
+      "place": false
+    },
+    "pl": {
+      "enabled": true,
+      "profiles": {
+        "stack_default": true
+      }
+    },
+    "wide_calibrator": {
+      "enabled": true,
+      "methods": {
+        "isotonic": {
+          "enabled": true,
+          "method": "isotonic"
+        }
+      }
+    },
+    "backtest": {
+      "pl_holdout": true,
+      "pl_oof": false,
+      "wide_calibrated": false
+    }
+  },
+  "quality_summary": {
+    "binary": {
+      "win.lgbm": {
+        "logloss": 0.41,
+        "brier": 0.14,
+        "auc": 0.77,
+        "ece": 0.03,
+        "benter_r2_valid": 0.12
+      }
+    },
+    "stack": {
+      "win": {
+        "logloss": 0.39,
+        "brier": 0.13,
+        "auc": 0.79,
+        "ece": 0.02
+      }
+    },
+    "pl": {
+      "stack_default": {
+        "pl_nll_valid": 1.11,
+        "top3_logloss": 0.58,
+        "top3_brier": 0.18,
+        "top3_auc": 0.72,
+        "top3_ece": 0.04
+      }
+    },
+    "wide_calibrator": {
+      "isotonic": {
+        "fit": {
+          "rows": 80,
+          "races": 8,
+          "selected_years": [
+            2024
+          ],
+          "logloss": 0.48,
+          "brier": 0.16,
+          "auc": 0.71,
+          "ece": 0.02
+        },
+        "holdout_eval": {
+          "rows": 20,
+          "races": 2,
+          "selected_years": [
+            2025
+          ],
+          "logloss": 0.46,
+          "brier": 0.15,
+          "auc": 0.74,
+          "ece": 0.01
+        }
+      }
+    },
+    "backtest": {
+      "pl_holdout": {
+        "period_from": "2025-01-01",
+        "period_to": "2025-12-31",
+        "n_races": 20,
+        "n_bets": 30,
+        "n_hits": 10,
+        "hit_rate": 0.3333,
+        "total_bet": 3000,
+        "total_return": 4200,
+        "roi": 1.4,
+        "max_drawdown": -500,
+        "logloss": 0.56,
+        "auc": 0.71
+      }
+    }
+  },
+  "coverage_summary": {
+    "binary": {
+      "win.lgbm": {
+        "rows": 1200,
+        "races": 120,
+        "years": [
+          2022,
+          2023,
+          2024
+        ],
+        "oof_valid_years": [
+          2022,
+          2023,
+          2024
+        ],
+        "holdout_years": [
+          2025,
+          2026
+        ],
+        "holdout_year": 2025
+      }
+    },
+    "pl": {
+      "stack_default": {
+        "rows": 600,
+        "races": 60,
+        "years": [
+          2024
+        ],
+        "oof_valid_years": [
+          2024
+        ],
+        "holdout_years": [
+          2025
+        ],
+        "pl_oof_valid_years": [
+          2024
+        ],
+        "pl_holdout_train_years": [
+          2022,
+          2023,
+          2024
+        ],
+        "base_oof_years": [
+          2022,
+          2023,
+          2024
+        ],
+        "stacker_oof_years": [
+          2023,
+          2024
+        ]
+      }
+    }
+  },
+  "backtest_summary": {
+    "pl_holdout": {
+      "period_from": "2025-01-01",
+      "period_to": "2025-12-31",
+      "n_races": 20,
+      "n_bets": 30,
+      "n_hits": 10,
+      "hit_rate": 0.3333,
+      "total_bet": 3000,
+      "total_return": 4200,
+      "roi": 1.4,
+      "max_drawdown": -500,
+      "logloss": 0.56,
+      "auc": 0.71
+    }
+  },
+  "paths": {
+    "run_root": "runs/report_full",
+    "config": "runs/report_full/config.toml",
+    "bundle": "runs/report_full/bundle.json",
+    "metrics": "runs/report_full/metrics.json",
+    "resolved_params": "runs/report_full/resolved_params.toml",
+    "summary": "runs/report_full/execution_report_summary.json",
+    "detail": "runs/report_full/execution_report_detail.json",
+    "annotation": "runs/report_full/execution_report_annotation.toml",
+    "feature_build_config": "data/features/baseline_v3/build_001/config.toml"
+  }
+}

@@ -10,6 +10,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+import keiba_research.common.assets as assets_module
 import keiba_research.training.commands as training_commands
 from keiba_research.cli import build_parser
 from keiba_research.common.assets import (
@@ -31,7 +32,12 @@ from keiba_research.common.state import (
 )
 from keiba_research.common.v3_utils import hash_files, resolve_path
 from keiba_research.db.commands import handle_rebuild
-from keiba_research.evaluation.commands import handle_backtest, handle_compare
+from keiba_research.evaluation.commands import (
+    handle_backtest,
+    handle_compare,
+    handle_report,
+    handle_report_view,
+)
 from keiba_research.training.binary import run_binary_training
 from keiba_research.training.commands import (
     handle_binary,
@@ -83,6 +89,402 @@ def _argv_to_dict(argv: list[str]) -> dict[str, str | bool]:
             parsed[token] = True
             index += 1
     return parsed
+
+
+def _write_json_file(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _prepare_execution_report_run(
+    asset_root_env: Path,
+    *,
+    run_id: str,
+    source_run_id: str = "",
+    with_backtest: bool = True,
+    annotation: dict[str, object] | None = None,
+    study_id: str = "",
+) -> Path:
+    feature_root = asset_root_env / "data" / "features" / "baseline_v3" / "build_001"
+    feature_root.mkdir(parents=True, exist_ok=True)
+    (feature_root / "config.toml").write_text(
+        '\n'.join(
+            [
+                'feature_profile = "baseline_v3"',
+                'feature_build_id = "build_001"',
+                'from_date = "2016-01-01"',
+                'to_date = "2025-12-31"',
+                "history_days = 730",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (feature_root / "features_v3.parquet").write_text("features", encoding="utf-8")
+
+    if source_run_id:
+        update_run_config(
+            source_run_id,
+            {
+                "run_id": source_run_id,
+                "feature_profile": "baseline_v3",
+                "feature_build_id": "build_001",
+                "holdout_year": 2025,
+            },
+        )
+
+    update_run_config(
+        run_id,
+        {
+            "run_id": run_id,
+            "feature_profile": "baseline_v3",
+            "feature_build_id": "build_001",
+            "holdout_year": 2025,
+            "pl_feature_profile": "stack_default",
+        },
+    )
+    run = run_paths(run_id)
+
+    binary_metrics = {
+        "summary": {
+            "logloss": {"mean": 0.41},
+            "brier": {"mean": 0.14},
+            "auc": {"mean": 0.77},
+            "ece": {"mean": 0.03},
+            "benter_r2_valid": {"mean": 0.12},
+        },
+        "data_summary": {
+            "rows": 1200,
+            "races": 120,
+            "years": [2022, 2023, 2024],
+            "oof_rows": 900,
+            "oof_races": 90,
+            "holdout_rows": 300,
+            "holdout_races": 30,
+        },
+        "cv_policy": {"valid_years": [2022, 2023, 2024]},
+        "config": {
+            "holdout_year": 2025,
+            "train_window_years": 3,
+            "operational_mode": "t10_only",
+            "include_entity_id_features": False,
+            "params_json": "studies/study_001/selected_trial.json" if study_id else None,
+        },
+    }
+    binary_metrics_path = run["reports"] / "win_lgbm_cv_metrics.json"
+    _write_json_file(binary_metrics_path, binary_metrics)
+    pd.DataFrame({"valid_year": [2025, 2026]}).to_parquet(
+        run["holdout"] / "win_lgbm_holdout_2025.parquet", index=False
+    )
+    (run["oof"] / "win_lgbm_oof.parquet").write_text("oof", encoding="utf-8")
+    (run["models"] / "win_lgbm_v3.txt").write_text("model", encoding="utf-8")
+    _write_json_file(run["models"] / "win_lgbm_bundle_meta_v3.json", {"code_hash": "binary-hash"})
+    update_run_bundle(
+        run_id,
+        "binary.win.lgbm",
+        {
+            "feature_set": "te",
+            "study_id": study_id or None,
+            "input": asset_relative(feature_root / "features_v3.parquet"),
+            "oof": asset_relative(run["oof"] / "win_lgbm_oof.parquet"),
+            "holdout": asset_relative(run["holdout"] / "win_lgbm_holdout_2025.parquet"),
+            "metrics": asset_relative(binary_metrics_path),
+            "model": asset_relative(run["models"] / "win_lgbm_v3.txt"),
+            "meta": asset_relative(run["models"] / "win_lgbm_bundle_meta_v3.json"),
+        },
+    )
+    update_run_metrics(
+        run_id,
+        "binary.win.lgbm",
+        {"path": asset_relative(binary_metrics_path), "report": binary_metrics},
+    )
+
+    stack_metrics = {
+        "summary": {
+            "logloss": {"mean": 0.39},
+            "brier": {"mean": 0.13},
+            "auc": {"mean": 0.79},
+            "ece": {"mean": 0.02},
+        },
+        "data_summary": {"rows": 900, "races": 90, "years": [2023, 2024]},
+        "cv_policy": {"valid_years": [2023, 2024]},
+        "config": {
+            "holdout_year": 2025,
+            "min_train_window_years": 2,
+            "train_window_years": 3,
+            "params_json": "studies/stack_study/selected_trial.json",
+        },
+    }
+    stack_metrics_path = run["reports"] / "win_stack_cv_metrics.json"
+    _write_json_file(stack_metrics_path, stack_metrics)
+    pd.DataFrame({"valid_year": [2025]}).to_parquet(
+        run["holdout"] / "win_stack_holdout_2025.parquet", index=False
+    )
+    (run["oof"] / "win_stack_oof.parquet").write_text("oof", encoding="utf-8")
+    (run["models"] / "win_stack_v3.txt").write_text("model", encoding="utf-8")
+    _write_json_file(run["models"] / "win_stack_bundle_meta_v3.json", {"code_hash": "stack-hash"})
+    update_run_bundle(
+        run_id,
+        "stack.win",
+        {
+            "source_run_id": source_run_id or run_id,
+            "oof": asset_relative(run["oof"] / "win_stack_oof.parquet"),
+            "holdout": asset_relative(run["holdout"] / "win_stack_holdout_2025.parquet"),
+            "metrics": asset_relative(stack_metrics_path),
+            "model": asset_relative(run["models"] / "win_stack_v3.txt"),
+            "meta": asset_relative(run["models"] / "win_stack_bundle_meta_v3.json"),
+        },
+    )
+    update_run_metrics(
+        run_id,
+        "stack.win",
+        {"path": asset_relative(stack_metrics_path), "report": stack_metrics},
+    )
+
+    pl_metrics = {
+        "summary": {
+            "pl_nll_valid": {"mean": 1.11},
+            "top3_logloss": {"mean": 0.58},
+            "top3_brier": {"mean": 0.18},
+            "top3_auc": {"mean": 0.72},
+            "top3_ece": {"mean": 0.04},
+        },
+        "data_summary": {"rows": 600, "races": 60, "years": [2024]},
+        "holdout_summary": {
+            "rows": 200,
+            "races": 20,
+            "years": [2025],
+            "top3_logloss": 0.57,
+            "top3_brier": 0.17,
+            "top3_auc": 0.73,
+            "top3_ece": 0.03,
+            "segments": {
+                "all": {"rows": 200, "logloss": 0.57},
+                "3yo": {"rows": 80, "logloss": 0.61},
+                "4up": {"rows": 120, "logloss": 0.54},
+            },
+        },
+        "config": {
+            "holdout_year": 2025,
+            "train_window_years": 3,
+            "operational_mode": "t10_only",
+            "pl_feature_profile": "stack_default",
+        },
+    }
+    pl_metrics_path = run["reports"] / "pl_stack_default_cv_metrics.json"
+    _write_json_file(pl_metrics_path, pl_metrics)
+    _write_json_file(
+        run["reports"] / "pl_stack_default_year_coverage.json",
+        {
+            "base_oof_years": [2022, 2023, 2024],
+            "stacker_oof_years": [2023, 2024],
+            "pl_oof_valid_years": [2024],
+            "pl_holdout_train_years": [2022, 2023, 2024],
+        },
+    )
+    pd.DataFrame({"valid_year": [2025]}).to_parquet(
+        run["holdout"] / "pl_stack_default_holdout_2025.parquet", index=False
+    )
+    (run["oof"] / "pl_stack_default_oof.parquet").write_text("oof", encoding="utf-8")
+    _write_json_file(run["models"] / "pl_stack_default_bundle_meta.json", {"code_hash": "pl-hash"})
+    update_run_bundle(
+        run_id,
+        "pl.stack_default",
+        {
+            "source_run_id": source_run_id or run_id,
+            "oof": asset_relative(run["oof"] / "pl_stack_default_oof.parquet"),
+            "holdout": asset_relative(run["holdout"] / "pl_stack_default_holdout_2025.parquet"),
+            "metrics": asset_relative(pl_metrics_path),
+            "meta": asset_relative(run["models"] / "pl_stack_default_bundle_meta.json"),
+            "year_coverage": asset_relative(run["reports"] / "pl_stack_default_year_coverage.json"),
+        },
+    )
+    update_run_metrics(
+        run_id,
+        "pl.stack_default",
+        {"path": asset_relative(pl_metrics_path), "report": pl_metrics},
+    )
+
+    wide_metrics = {
+        "fit": {
+            "rows": 80,
+            "races": 8,
+            "selected_years": [2024],
+            "calibrated": {"logloss": 0.48, "brier": 0.16, "auc": 0.71, "ece": 0.02},
+        },
+        "holdout_eval": {
+            "rows": 20,
+            "races": 2,
+            "selected_years": [2025],
+            "calibrated": {"logloss": 0.46, "brier": 0.15, "auc": 0.74, "ece": 0.01},
+        },
+    }
+    wide_metrics_path = run["reports"] / "wide_pair_calibration_isotonic_metrics.json"
+    _write_json_file(wide_metrics_path, wide_metrics)
+    (run["predictions"] / "wide_pair_calibration_isotonic_pred.parquet").write_text(
+        "pred", encoding="utf-8"
+    )
+    _write_json_file(
+        run["models"] / "wide_pair_calibrator_isotonic_bundle_meta.json",
+        {"code_hash": "wide-hash"},
+    )
+    update_run_bundle(
+        run_id,
+        "wide_calibrator.isotonic",
+        {
+            "source_run_id": source_run_id or run_id,
+            "predictions": asset_relative(
+                run["predictions"] / "wide_pair_calibration_isotonic_pred.parquet"
+            ),
+            "metrics": asset_relative(wide_metrics_path),
+            "meta": asset_relative(run["models"] / "wide_pair_calibrator_isotonic_bundle_meta.json"),
+        },
+    )
+    update_run_metrics(
+        run_id,
+        "wide_calibrator.isotonic",
+        {"path": asset_relative(wide_metrics_path), "report": wide_metrics},
+    )
+
+    if with_backtest:
+        backtest_report = {
+            "summary": {
+                "period_from": "2025-01-01",
+                "period_to": "2025-12-31",
+                "n_races": 20,
+                "n_bets": 30,
+                "n_hits": 10,
+                "hit_rate": 0.3333,
+                "total_bet": 3000,
+                "total_return": 4200,
+                "roi": 1.4,
+                "max_drawdown": -500,
+                "logloss": 0.56,
+                "auc": 0.71,
+            }
+        }
+        backtest_meta = {
+            "input": {
+                "input_mode": "horse",
+                "p_wide_source": "v3_pl_score_mc",
+                "rows": 200,
+                "pair_rows_for_backtest": 600,
+                "selected_races": 20,
+                "selected_years": [2025],
+                "available_years_after_holdout_filter": [2025],
+                "input_filter_holdout_year": 2026,
+            },
+            "config": {
+                "selection": {
+                    "min_p_wide": 0.0,
+                    "min_p_wide_stage": "candidate",
+                    "ev_threshold": 0.0,
+                    "max_bets_per_race": 5,
+                },
+                "bankroll": {
+                    "bankroll_init_yen": 1_000_000,
+                    "kelly_fraction_scale": 0.25,
+                    "race_cap_fraction": 0.05,
+                    "daily_cap_fraction": 0.2,
+                    "bet_unit_yen": 100,
+                    "min_bet_yen": 100,
+                    "max_bet_yen": None,
+                },
+            },
+        }
+        backtest_report_path = run["reports"] / "backtest_pl_holdout.json"
+        backtest_meta_path = run["reports"] / "backtest_pl_holdout_meta.json"
+        _write_json_file(backtest_report_path, backtest_report)
+        _write_json_file(backtest_meta_path, backtest_meta)
+        update_run_bundle(
+            run_id,
+            "backtest.pl_holdout",
+            {
+                "input_kind": "pl_holdout",
+                "pl_feature_profile": "stack_default",
+                "report": asset_relative(backtest_report_path),
+                "meta": asset_relative(backtest_meta_path),
+            },
+        )
+        update_run_metrics(
+            run_id,
+            "backtest.pl_holdout",
+            {"path": asset_relative(backtest_report_path), "report": backtest_report},
+        )
+
+    (run["resolved_params"]).write_text(
+        '\n'.join(
+            [
+                "[binary.win.lgbm]",
+                'feature_set = "te"',
+                "holdout_year = 2025",
+                "train_window_years = 3",
+                "num_leaves = 63",
+                "final_num_boost_round = 123",
+                "",
+                "[stack.win]",
+                f'source_run_id = "{source_run_id or run_id}"',
+                "holdout_year = 2025",
+                "min_train_years = 2",
+                "max_train_years = 3",
+                "",
+                "[pl.stack_default]",
+                'pl_feature_profile = "stack_default"',
+                "holdout_year = 2025",
+                "train_window_years = 3",
+                "",
+                "[wide_calibrator.isotonic]",
+                'method = "isotonic"',
+                f'source_run_id = "{source_run_id or run_id}"',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    if study_id:
+        study = study_paths(study_id)
+        update_study_config(
+            study_id,
+            {
+                "study_id": study_id,
+                "kind": "binary",
+                "task": "win",
+                "model": "lgbm",
+                "feature_profile": "baseline_v3",
+                "feature_build_id": "build_001",
+                "imported": False,
+                "read_only_seed": False,
+            },
+        )
+        _write_json_file(
+            study["selected_trial"],
+            {
+                "task": "win",
+                "model": "lgbm",
+                "feature_set": "te",
+                "train_window_years": 3,
+                "lgbm_params": {"num_leaves": 63},
+                "final_num_boost_round": 123,
+            },
+        )
+
+    if annotation:
+        lines: list[str] = []
+        for key in ("title", "description", "status"):
+            if key in annotation:
+                lines.append(f'{key} = "{annotation[key]}"')
+        if "code_revision" in annotation:
+            lines.extend(
+                [
+                    "",
+                    "[code_revision]",
+                    f'git_commit = "{annotation["code_revision"]}"',
+                ]
+            )
+        (run["execution_report_annotation"]).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    return run["root"]
 
 
 def test_binary_config_mapping_matches_run_binary_signature() -> None:
@@ -1505,6 +1907,249 @@ def test_wide_calibrator_report_separates_fit_and_holdout_eval(
     assert pred["race_id"].unique().tolist() == [2]
 
 
+def test_asset_root_defaults_to_fixed_workspace_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    expected = tmp_path / ".local" / "v3_assets"
+    monkeypatch.delenv("V3_ASSET_ROOT", raising=False)
+    monkeypatch.setattr(assets_module, "DEFAULT_ASSET_ROOT", expected)
+
+    assert assets_module.asset_root() == expected
+    assert assets_module.asset_root().exists()
+
+
+def test_eval_report_generates_summary_and_detail_for_full_run(
+    asset_root_env: Path,
+) -> None:
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_full",
+        source_run_id="upstream_run",
+        study_id="study_001",
+        annotation={
+            "title": "Annotated full report",
+            "description": "full execution report",
+            "status": "complete",
+            "code_revision": "abc1234",
+        },
+    )
+
+    rc = handle_report(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": "report_full",
+                "summary_output": "",
+                "detail_output": "",
+                "annotation": "",
+            },
+        )()
+    )
+    assert rc == 0
+
+    run = run_paths("report_full")
+    summary = json.loads(run["execution_report_summary"].read_text(encoding="utf-8"))
+    detail = json.loads(run["execution_report_detail"].read_text(encoding="utf-8"))
+
+    assert summary["report_id"] == "report_full"
+    assert summary["run_id"] == "report_full"
+    assert summary["title"] == "Annotated full report"
+    assert summary["description"] == "full execution report"
+    assert summary["status"] == "complete"
+    assert summary["conditions"]["from_date"] == "2016-01-01"
+    assert summary["quality_summary"]["binary"]["win.lgbm"]["logloss"] == 0.41
+    assert summary["quality_summary"]["pl"]["stack_default"]["top3_logloss"] == 0.58
+    assert summary["quality_summary"]["wide_calibrator"]["isotonic"]["holdout_eval"]["auc"] == 0.74
+    assert summary["backtest_summary"]["pl_holdout"]["roi"] == 1.4
+    assert summary["coverage_summary"]["pl"]["stack_default"]["pl_oof_valid_years"] == [2024]
+    assert summary["paths"]["summary"] == "runs/report_full/execution_report_summary.json"
+    assert detail["lineage"]["primary_source_run_id"] == "upstream_run"
+    assert detail["setting_sources"]["binary.win.lgbm"]["feature_set"] == "study_selected"
+    assert detail["setting_sources"]["binary.win.lgbm"]["operational_mode"] == "default"
+    assert detail["setting_sources"]["binary.win.lgbm"]["params_json"] == "unknown"
+    assert detail["diagnostics"]["pl_top3_segments"]["stack_default"]["3yo"]["logloss"] == 0.61
+    assert detail["roi_detail"]["backtests"]["pl_holdout"]["purchase_rule"]["kelly_fraction"] == 0.25
+    assert detail["code_fingerprint"]["git_commit"] == "abc1234"
+    assert detail["code_fingerprint"]["layer_code_hashes"]["pl.stack_default"] == "pl-hash"
+
+
+def test_eval_report_marks_binary_only_run_partial(asset_root_env: Path) -> None:
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_partial",
+        with_backtest=False,
+    )
+
+    # Keep only the binary section to simulate an incomplete run without backtest.
+    run = run_paths("report_partial")
+    bundle = json.loads(run["bundle"].read_text(encoding="utf-8"))
+    metrics = json.loads(run["metrics"].read_text(encoding="utf-8"))
+    bundle["sections"] = {"binary.win.lgbm": bundle["sections"]["binary.win.lgbm"]}
+    metrics["sections"] = {"binary.win.lgbm": metrics["sections"]["binary.win.lgbm"]}
+    run["bundle"].write_text(json.dumps(bundle, ensure_ascii=False, indent=2), encoding="utf-8")
+    run["metrics"].write_text(json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8")
+    run["resolved_params"].write_text(
+        '[binary.win.lgbm]\nfeature_set = "te"\nholdout_year = 2025\ntrain_window_years = 3\n',
+        encoding="utf-8",
+    )
+
+    rc = handle_report(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": "report_partial",
+                "summary_output": "",
+                "detail_output": "",
+                "annotation": "",
+            },
+        )()
+    )
+    assert rc == 0
+
+    summary = json.loads(run["execution_report_summary"].read_text(encoding="utf-8"))
+    assert summary["status"] == "partial"
+    assert "backtest_summary" in summary
+    assert summary["backtest_summary"] == {}
+
+
+def test_eval_report_preserves_cross_run_lineage(asset_root_env: Path) -> None:
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_lineage",
+        source_run_id="baseline_upstream",
+        with_backtest=False,
+    )
+
+    rc = handle_report(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": "report_lineage",
+                "summary_output": "",
+                "detail_output": "",
+                "annotation": "",
+            },
+        )()
+    )
+    assert rc == 0
+
+    detail = json.loads(
+        run_paths("report_lineage")["execution_report_detail"].read_text(encoding="utf-8")
+    )
+    assert detail["lineage"]["source_run_ids"] == ["baseline_upstream"]
+    assert detail["lineage"]["section_source_runs"]["stack.win"] == "baseline_upstream"
+    assert detail["setting_sources"]["stack.win"]["source_run_id"] == "inherited_from_source_run"
+
+
+def test_eval_report_cli_and_docs_consistency() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["eval", "report", "--run-id", "run_001"])
+    assert args.run_id == "run_001"
+
+    readme = Path("README.md").read_text(encoding="utf-8")
+    active_asset_root = Path("docs/history/active-asset-root.md").read_text(encoding="utf-8")
+    assert "/home/sato/projects/REPO-v3-research/.local/v3_assets" in readme
+    assert "/home/sato/projects/REPO-v3-research/.local/v3_assets" in active_asset_root
+
+
+def test_eval_report_public_cli_generates_outputs(asset_root_env: Path) -> None:
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_cli",
+        source_run_id="upstream_run",
+        with_backtest=True,
+    )
+
+    repo_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        ["uv", "run", "python", "-m", "keiba_research", "eval", "report", "--run-id", "report_cli"],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        env=dict(os.environ),
+    )
+    assert result.returncode == 0, result.stderr
+
+    run = run_paths("report_cli")
+    assert run["execution_report_summary"].exists()
+    assert run["execution_report_detail"].exists()
+
+    summary = json.loads(run["execution_report_summary"].read_text(encoding="utf-8"))
+    assert summary["report_id"] == "report_cli"
+    assert summary["paths"]["summary"] == "runs/report_cli/execution_report_summary.json"
+
+
+def test_eval_report_view_generates_single_html(asset_root_env: Path) -> None:
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_view_single",
+        with_backtest=True,
+    )
+
+    output_html = asset_root_env / "cache" / "report_view" / "single.html"
+    rc = handle_report_view(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": ["report_view_single"],
+                "output_html": str(output_html),
+                "host": "127.0.0.1",
+                "port": 8765,
+                "refresh": False,
+                "no_serve": True,
+                "open_browser": False,
+            },
+        )()
+    )
+    assert rc == 0
+    html_text = output_html.read_text(encoding="utf-8")
+    assert "report_view_single" in html_text
+    assert "Binary Quality" in html_text
+    assert "Backtest Summary" in html_text
+    assert 'rel="icon"' in html_text
+
+
+def test_eval_report_view_generates_compare_html(asset_root_env: Path) -> None:
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_view_left",
+        with_backtest=True,
+    )
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_view_right",
+        with_backtest=False,
+    )
+
+    output_html = asset_root_env / "cache" / "report_view" / "compare.html"
+    rc = handle_report_view(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": ["report_view_left", "report_view_right"],
+                "output_html": str(output_html),
+                "host": "127.0.0.1",
+                "port": 8765,
+                "refresh": True,
+                "no_serve": True,
+                "open_browser": False,
+            },
+        )()
+    )
+    assert rc == 0
+    html_text = output_html.read_text(encoding="utf-8")
+    assert "compare mode" in html_text
+    assert "report_view_left vs report_view_right" in html_text
+    assert "Quality Summary" in html_text
+    assert "Backtest Summary" in html_text
+    assert 'rel="icon"' in html_text
+
+
 def test_python_module_help_smoke() -> None:
     env = dict(os.environ)
     env.setdefault("V3_ASSET_ROOT", "/tmp/keiba_research_help")
@@ -1518,6 +2163,40 @@ def test_python_module_help_smoke() -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "usage:" in result.stdout.lower()
+
+
+def test_eval_report_view_public_cli_generates_html(asset_root_env: Path) -> None:
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_view_cli",
+        with_backtest=True,
+    )
+
+    output_html = asset_root_env / "cache" / "report_view" / "public_cli.html"
+    repo_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "keiba_research",
+            "eval",
+            "report-view",
+            "--run-id",
+            "report_view_cli",
+            "--output-html",
+            str(output_html),
+            "--no-serve",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        env=dict(os.environ),
+    )
+    assert result.returncode == 0, result.stderr
+    assert output_html.exists()
+    assert "public_cli.html" in result.stdout
 
 
 def test_rebuild_cli_accepts_pinned_o1_date() -> None:

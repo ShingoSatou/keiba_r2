@@ -30,6 +30,10 @@
   - 今回の train run が upstream prediction を読む元の run
 - `compare report`
   - 2 run の `metrics.json` 差分をまとめた派生 JSON
+- `execution report`
+  - 1 run から派生生成する user-facing report JSON
+  - v1 では `1 report = 1 run`
+  - `run` 自体を置き換える source of truth ではない
 
 ## Prediction terms
 - `OOF`
@@ -81,6 +85,12 @@
   - run が生成した artifact の索引
 - `metrics.json`
   - compare で使う数値指標の集約
+- `execution_report_summary.json`
+  - 一覧 / 比較向けに絞った execution report summary
+- `execution_report_detail.json`
+  - summary を含み、lineage / settings / diagnostics を足した詳細 report
+- `execution_report_annotation.toml`
+  - title / description / status / code revision override 用の任意 annotation
 - `section`
   - `bundle.json` / `metrics.json` の中の名前付き領域
   - 例: `binary.win.lgbm`, `pl.stack_default`, `backtest.pl_holdout`

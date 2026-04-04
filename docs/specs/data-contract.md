@@ -2,8 +2,9 @@
 
 ## Environment
 - `V3_ASSET_ROOT`
-  - 必須
+  - optional override
   - この repo が生成する外部資産の保存先
+  - current workspace の default は `/home/sato/projects/REPO-v3-research/.local/v3_assets`
 - `V3_DATABASE_URL`
   - DB 接続先
 - `V3_MODEL_THREADS`
@@ -177,6 +178,9 @@ $V3_ASSET_ROOT/runs/<run_id>/
 ├── bundle.json
 ├── metrics.json
 ├── resolved_params.toml
+├── execution_report_summary.json
+├── execution_report_detail.json
+├── optional execution_report_annotation.toml
 └── artifacts/
     ├── models/
     ├── oof/
@@ -201,6 +205,13 @@ $V3_ASSET_ROOT/runs/<run_id>/
   - 手書き `run_config.toml` では `num_boost_round` も compatibility alias として受理するが、保存時は canonical key に正規化される
   - training 側で適用される内部デフォルトは必ずしも含まれない
   - 再現確認や study → run の対応追跡に使う
+- `execution_report_summary.json`
+  - `run` から派生生成する summary report
+  - UI 一覧 / 比較向けに curated field を持つ
+- `execution_report_detail.json`
+  - summary を含み、source of truth, lineage, settings, diagnostics を足した詳細 report
+- `execution_report_annotation.toml`
+  - report title / description / status / code revision override 用の任意 file
 - `artifacts/`
   - 実ファイル本体
 
@@ -241,6 +252,17 @@ repo-level CLI が保存する代表 section:
 - `pl.stack_default`, `pl.stack_default_age_v1`
 - `wide_calibrator.isotonic`, `wide_calibrator.logreg`
 - `backtest.pl_holdout`, `backtest.pl_oof`, `backtest.wide_calibrated`
+
+execution report の派生 output:
+- `runs/<run_id>/execution_report_summary.json`
+- `runs/<run_id>/execution_report_detail.json`
+- source of truth は引き続き `config.toml`, `bundle.json`, `metrics.json`, `resolved_params.toml`, `artifacts/` です
+
+viewer の派生 output:
+- `cache/report_view/<run_id>.html`
+- `cache/report_view/<left_run_id>__vs__<right_run_id>.html`
+- `cache/report_view/index.json`
+- source of truth は引き続き execution report JSON です
 
 `config.toml` の最小例:
 ```toml
