@@ -32,7 +32,12 @@ from keiba_research.common.state import (
 )
 from keiba_research.common.v3_utils import hash_files, resolve_path
 from keiba_research.db.commands import handle_rebuild
-from keiba_research.evaluation.commands import handle_backtest, handle_compare, handle_report
+from keiba_research.evaluation.commands import (
+    handle_backtest,
+    handle_compare,
+    handle_report,
+    handle_report_view,
+)
 from keiba_research.training.binary import run_binary_training
 from keiba_research.training.commands import (
     handle_binary,
@@ -2077,6 +2082,74 @@ def test_eval_report_public_cli_generates_outputs(asset_root_env: Path) -> None:
     assert summary["paths"]["summary"] == "runs/report_cli/execution_report_summary.json"
 
 
+def test_eval_report_view_generates_single_html(asset_root_env: Path) -> None:
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_view_single",
+        with_backtest=True,
+    )
+
+    output_html = asset_root_env / "cache" / "report_view" / "single.html"
+    rc = handle_report_view(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": ["report_view_single"],
+                "output_html": str(output_html),
+                "host": "127.0.0.1",
+                "port": 8765,
+                "refresh": False,
+                "no_serve": True,
+                "open_browser": False,
+            },
+        )()
+    )
+    assert rc == 0
+    html_text = output_html.read_text(encoding="utf-8")
+    assert "report_view_single" in html_text
+    assert "Binary Quality" in html_text
+    assert "Backtest Summary" in html_text
+    assert 'rel="icon"' in html_text
+
+
+def test_eval_report_view_generates_compare_html(asset_root_env: Path) -> None:
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_view_left",
+        with_backtest=True,
+    )
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_view_right",
+        with_backtest=False,
+    )
+
+    output_html = asset_root_env / "cache" / "report_view" / "compare.html"
+    rc = handle_report_view(
+        type(
+            "Args",
+            (),
+            {
+                "run_id": ["report_view_left", "report_view_right"],
+                "output_html": str(output_html),
+                "host": "127.0.0.1",
+                "port": 8765,
+                "refresh": True,
+                "no_serve": True,
+                "open_browser": False,
+            },
+        )()
+    )
+    assert rc == 0
+    html_text = output_html.read_text(encoding="utf-8")
+    assert "compare mode" in html_text
+    assert "report_view_left vs report_view_right" in html_text
+    assert "Quality Summary" in html_text
+    assert "Backtest Summary" in html_text
+    assert 'rel="icon"' in html_text
+
+
 def test_python_module_help_smoke() -> None:
     env = dict(os.environ)
     env.setdefault("V3_ASSET_ROOT", "/tmp/keiba_research_help")
@@ -2090,6 +2163,40 @@ def test_python_module_help_smoke() -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "usage:" in result.stdout.lower()
+
+
+def test_eval_report_view_public_cli_generates_html(asset_root_env: Path) -> None:
+    _prepare_execution_report_run(
+        asset_root_env,
+        run_id="report_view_cli",
+        with_backtest=True,
+    )
+
+    output_html = asset_root_env / "cache" / "report_view" / "public_cli.html"
+    repo_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [
+            "uv",
+            "run",
+            "python",
+            "-m",
+            "keiba_research",
+            "eval",
+            "report-view",
+            "--run-id",
+            "report_view_cli",
+            "--output-html",
+            str(output_html),
+            "--no-serve",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        env=dict(os.environ),
+    )
+    assert result.returncode == 0, result.stderr
+    assert output_html.exists()
+    assert "public_cli.html" in result.stdout
 
 
 def test_rebuild_cli_accepts_pinned_o1_date() -> None:

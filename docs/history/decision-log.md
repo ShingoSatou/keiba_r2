@@ -44,6 +44,9 @@
 - execution report v1 は `run` 派生 read model として扱う
   - v1 では `1 report = 1 run` に固定し、source of truth は `run` のまま維持する
   - compare は従来どおり `metrics.json` を読み、execution report は UI/read layer 用の curated surface に留める
+- execution report には repo-native local UI を付ける
+  - JSON だけで終わらせず、`eval report-view` を public entrypoint にする
+  - v1 では単票 viewer と 2 run compare viewer を持ち、execution report の primary purpose を可視化に置く
 - current workspace の asset root は repo 内 `.local/v3_assets` に固定する
   - current path は `/home/sato/projects/REPO-v3-research/.local/v3_assets`
   - `V3_ASSET_ROOT` 未設定時も同じ path を default として使う

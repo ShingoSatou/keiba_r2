@@ -258,6 +258,12 @@ execution report の派生 output:
 - `runs/<run_id>/execution_report_detail.json`
 - source of truth は引き続き `config.toml`, `bundle.json`, `metrics.json`, `resolved_params.toml`, `artifacts/` です
 
+viewer の派生 output:
+- `cache/report_view/<run_id>.html`
+- `cache/report_view/<left_run_id>__vs__<right_run_id>.html`
+- `cache/report_view/index.json`
+- source of truth は引き続き execution report JSON です
+
 `config.toml` の最小例:
 ```toml
 run_id = "baseline_run"

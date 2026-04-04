@@ -2,7 +2,9 @@
 
 ## Summary
 - `eval report --run-id <run_id>` を追加する
+- `eval report-view --run-id <run_id>` を追加する
 - `execution_report_summary.json` と `execution_report_detail.json` を `runs/<run_id>/` に生成する
+- `cache/report_view/*.html` に local viewer を生成する
 - current workspace の artifact root は `/home/sato/projects/REPO-v3-research/.local/v3_assets` に固定する
 
 ## What to read
@@ -42,9 +44,11 @@
    - run bundle から summary/detail を組み立てる read-only builder を追加する
 4. medium risk
    - annotation override と setting provenance fallback を追加する
-5. low risk
+5. medium risk
+   - `eval report-view` CLI と static HTML viewer を追加する
+6. low risk
    - sample JSON と spec doc を追加する
-6. medium risk
+7. medium risk
    - same-run / partial / lineage / provenance / docs consistency test を追加する
 
 ## Deferred

@@ -16,6 +16,12 @@ from keiba_research.common.assets import (
 from keiba_research.common.state import update_run_bundle, update_run_metrics
 from keiba_research.evaluation.backtest_wide import run_backtest_wide
 from keiba_research.evaluation.execution_report import write_execution_report
+from keiba_research.evaluation.report_view import (
+    DEFAULT_VIEW_HOST,
+    DEFAULT_VIEW_PORT,
+    build_report_view,
+    serve_report_view,
+)
 
 
 def register(parser: argparse.ArgumentParser) -> None:
@@ -48,6 +54,24 @@ def register(parser: argparse.ArgumentParser) -> None:
     report.add_argument("--detail-output", default="")
     report.add_argument("--annotation", default="")
     report.set_defaults(handler=handle_report)
+
+    report_view = subparsers.add_parser(
+        "report-view",
+        help="Launch a local viewer for one or two execution reports.",
+    )
+    report_view.add_argument(
+        "--run-id",
+        action="append",
+        default=[],
+        help="run_id to view. Specify twice to open compare mode.",
+    )
+    report_view.add_argument("--output-html", default="")
+    report_view.add_argument("--host", default=DEFAULT_VIEW_HOST)
+    report_view.add_argument("--port", type=int, default=DEFAULT_VIEW_PORT)
+    report_view.add_argument("--refresh", action="store_true")
+    report_view.add_argument("--no-serve", action="store_true")
+    report_view.add_argument("--open-browser", action="store_true")
+    report_view.set_defaults(handler=handle_report_view)
 
 
 def _load_run_config(run_id: str) -> dict[str, object]:
@@ -187,3 +211,23 @@ def handle_report(args: argparse.Namespace) -> int:
         annotation_path=str(args.annotation).strip() or None,
     )
     return 0
+
+
+def handle_report_view(args: argparse.Namespace) -> int:
+    run_ids = [str(run_id).strip() for run_id in list(getattr(args, "run_id", []) or []) if str(run_id).strip()]
+    html_path = build_report_view(
+        run_ids,
+        output_html=str(args.output_html).strip() or None,
+        refresh=bool(args.refresh),
+    )
+    if bool(args.no_serve):
+        print(html_path)
+        return 0
+    return int(
+        serve_report_view(
+            html_path=html_path,
+            host=str(args.host).strip() or DEFAULT_VIEW_HOST,
+            port=int(args.port),
+            open_browser=bool(args.open_browser),
+        )
+    )

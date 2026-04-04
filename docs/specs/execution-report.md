@@ -30,6 +30,9 @@
 ## Outputs
 - `runs/<run_id>/execution_report_summary.json`
 - `runs/<run_id>/execution_report_detail.json`
+- local viewer page
+  - `cache/report_view/<run_id>.html`
+  - compare mode: `cache/report_view/<left_run_id>__vs__<right_run_id>.html`
 
 ## Summary schema
 必須 top-level field:
@@ -151,6 +154,12 @@ annotation が無いとき:
 - top-level execution report registry
 - new diagnostic slice 計算
 - compare を execution report summary ベースへ置き換えること
+
+## Local UI
+- repo-native local UI は `eval report-view` で起動する
+- viewer は execution report JSON を読む read-only surface とする
+- v1 では単票と 2 run compare mode を持つ
+- 毎回手で HTML を書く運用は前提にしない
 
 ## Samples
 - [execution_report_summary.sample.json](examples/execution_report_summary.sample.json)

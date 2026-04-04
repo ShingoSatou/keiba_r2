@@ -342,6 +342,33 @@ default:
 - title / description / status / code revision override は `execution_report_annotation.toml` から読めます
 - compare surface は変わりません
 
+### `eval report-view`
+用途:
+- execution report をローカル UI で閲覧する
+- `--run-id` を 2 回指定すると compare mode を開く
+
+必須引数:
+- `--run-id`
+  - 1 回指定: 単票 viewer
+  - 2 回指定: compare viewer
+
+主な引数:
+- optional `--output-html`
+- optional `--host`
+- optional `--port`
+- optional `--refresh`
+- optional `--no-serve`
+- optional `--open-browser`
+
+出力:
+- default: `cache/report_view/<run_id>.html`
+- compare mode: `cache/report_view/<left_run_id>__vs__<right_run_id>.html`
+
+注意:
+- report JSON が無ければ viewer 生成時に `eval report` 相当を先に実行します
+- local read-only UI です
+- production frontend / API は前提にしません
+
 ## `import`
 ### `import legacy-tuning`
 用途:

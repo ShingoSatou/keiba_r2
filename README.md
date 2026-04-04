@@ -63,7 +63,15 @@ uv run python -m keiba_research features build-base --feature-profile baseline_v
 uv run python -m keiba_research features build --feature-profile baseline_v3 --feature-build-id baseline_20260320
 uv run python -m keiba_research tune binary --study-id win_lgbm_baseline --task win --model lgbm --feature-profile baseline_v3 --feature-build-id baseline_20260320
 uv run python -m keiba_research train binary --run-id baseline_run --task win --model lgbm --feature-profile baseline_v3 --feature-build-id baseline_20260320 --study-id win_lgbm_baseline
+uv run python -m keiba_research eval report --run-id baseline_run
+uv run python -m keiba_research eval report-view --run-id baseline_run
 uv run python -m keiba_research eval compare --left-run-id baseline_run --right-run-id candidate_run
+```
+
+execution report の compare 用ローカル UI:
+```bash
+uv run python -m keiba_research eval report-view --run-id baseline_run
+uv run python -m keiba_research eval report-view --run-id baseline_run --run-id candidate_run
 ```
 
 ## 詳細 docs
